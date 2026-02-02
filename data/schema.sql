@@ -1,3 +1,10 @@
+-- Migrations table
+CREATE TABLE IF NOT EXISTS Migrations (
+    id INTEGER PRIMARY KEY,
+    version INTEGER UNIQUE NOT NULL,
+    applied_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+
 -- Languages table
 CREATE TABLE IF NOT EXISTS Languages (
     code TEXT PRIMARY KEY NOT NULL,
@@ -9,13 +16,12 @@ CREATE TABLE IF NOT EXISTS Descriptions (
     key TEXT PRIMARY KEY NOT NULL
 );
 
--- Translations table (with Surrogate Key)
+-- Translations table
 CREATE TABLE IF NOT EXISTS Translations (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     description_key TEXT NOT NULL,
     language_code TEXT NOT NULL,
     value TEXT NOT NULL,
-    -- Unique constraint ensures one translation per key per language
     UNIQUE(description_key, language_code),
     FOREIGN KEY (description_key) REFERENCES Descriptions(key) ON DELETE CASCADE,
     FOREIGN KEY (language_code) REFERENCES Languages(code) ON DELETE CASCADE
@@ -37,7 +43,7 @@ CREATE TABLE IF NOT EXISTS FirmwareVersions (
     FOREIGN KEY (recloser_id) REFERENCES Reclosers(id) ON DELETE CASCADE
 );
 
--- Services table (Self-referencing for hierarchy + linked to Firmware)
+-- Services table
 CREATE TABLE IF NOT EXISTS Services (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     service_key TEXT UNIQUE NOT NULL,
@@ -56,4 +62,36 @@ CREATE TABLE IF NOT EXISTS Features (
     service_id INTEGER NOT NULL,
     FOREIGN KEY (description_key) REFERENCES Descriptions(key),
     FOREIGN KEY (service_id) REFERENCES Services(id) ON DELETE CASCADE
+);
+
+-- Component table
+CREATE TABLE IF NOT EXISTS Component (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    type TEXT NOT NULL,
+    key TEXT UNIQUE NOT NULL
+);
+
+-- Limits table
+CREATE TABLE IF NOT EXISTS Limits (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    key TEXT UNIQUE NOT NULL
+);
+
+-- Feature Layout mapping
+CREATE TABLE IF NOT EXISTS FeatureLayout (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    feature_id INTEGER NOT NULL,
+    component_id INTEGER NOT NULL,
+    FOREIGN KEY (feature_id) REFERENCES Features(id) ON DELETE CASCADE,
+    FOREIGN KEY (component_id) REFERENCES Component(id) ON DELETE CASCADE
+);
+
+-- Specific limits for a layout
+CREATE TABLE IF NOT EXISTS FeatureLayoutLimits (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    layout_id INTEGER NOT NULL,
+    limit_id INTEGER NOT NULL,
+    value TEXT NOT NULL,
+    FOREIGN KEY (layout_id) REFERENCES FeatureLayout(id) ON DELETE CASCADE,
+    FOREIGN KEY (limit_id) REFERENCES Limits(id) ON DELETE CASCADE
 );
