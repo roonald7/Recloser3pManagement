@@ -39,13 +39,25 @@
         },
         {
             "name": "win-rel",
-            "displayName": "Windows Release Config",
+            "displayName": "Windows x86 Release Config",
             "generator": "Ninja",
             "inherits": "default",
             "cacheVariables": {
                 "CMAKE_BUILD_TYPE": "Release",
                 "CMAKE_MSVC_RUNTIME_LIBRARY": "MultiThreaded",
                 "VCPKG_TARGET_TRIPLET": "x86-windows-static"
+            }
+        },
+        {
+            "name": "win-dbg",
+            "displayName": "Windows x64 Debug Config",
+            "generator": "Ninja",
+            "inherits": "default",
+            "cacheVariables": {
+                "CMAKE_BUILD_TYPE": "Debug",
+                "CMAKE_MSVC_RUNTIME_LIBRARY": "MultiThreadedDebug",
+                "VCPKG_TARGET_TRIPLET": "x64-windows-static",
+                "CMAKE_GENERATOR_PLATFORM": "x64"
             }
         },
         {
@@ -81,6 +93,10 @@
         {
             "name": "win-rel",
             "configurePreset": "win-rel"
+        },
+        {
+            "name": "win-dbg",
+            "configurePreset": "win-dbg"
         },
         {
             "name": "linux-dbg",

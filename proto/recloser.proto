@@ -4,31 +4,96 @@ package recloser;
 
 service RecloserService {
   rpc GetServiceTree(ServiceTreeRequest) returns (ServiceTreeResponse);
-  rpc CompareServiceTrees(CompareServiceTreesRequest) returns (CompareServiceTreesResponse);
+  rpc CompareServiceTrees(CompareServiceTreesRequest)
+      returns (CompareServiceTreesResponse);
+  rpc GetScreenLayout(ScreenLayoutRequest) returns (ScreenLayoutResponse);
+  rpc GetFullInventory(FullInventoryRequest) returns (FullInventoryResponse);
+
+  // CRUD Operations
+  rpc CreateRecloser(RecloserRecord) returns (GenericResponse);
+  rpc UpdateRecloser(RecloserRecord) returns (GenericResponse);
+  rpc DeleteRecloser(DeleteRequest) returns (GenericResponse);
+
+  rpc CreateFirmware(FirmwareRecord) returns (GenericResponse);
+  rpc UpdateFirmware(FirmwareRecord) returns (GenericResponse);
+  rpc DeleteFirmware(DeleteRequest) returns (GenericResponse);
+
+  rpc AddServiceNode(ServiceRecord) returns (GenericResponse);
+  rpc UpdateServiceNode(ServiceRecord) returns (GenericResponse);
+  rpc DeleteServiceNode(DeleteRequest) returns (GenericResponse);
+
+  rpc CreateFeature(FeatureRecord) returns (GenericResponse);
+  rpc UpdateFeature(FeatureRecord) returns (GenericResponse);
+  rpc DeleteFeature(DeleteRequest) returns (GenericResponse);
 }
 
-message ServiceTreeRequest {
-  int32 firmware_id = 1;
-  string language_code = 2; // e.g., "enUs", "ptBr"
+message GenericResponse {
+  bool success = 1;
+  string message = 2;
 }
+
+message DeleteRequest { int32 id = 1; }
+
+message RecloserRecord {
+  int32 id = 1;
+  string model = 2;
+  string description_key = 3;
+}
+
+message FirmwareRecord {
+  int32 id = 1;
+  string version = 2;
+  int32 recloser_id = 3;
+}
+
+message ServiceRecord {
+  int32 id = 1;
+  string service_key = 2;
+  string description_key = 3;
+  int32 parent_id = 4;
+  int32 firmware_id = 5;
+}
+
+message FeatureRecord {
+  int32 id = 1;
+  string description_key = 2;
+  int32 service_id = 3;
+}
+
+message FullInventoryRequest {}
+
+message FirmwareInventory {
+  int32 id = 1;
+  string version = 2;
+  repeated ServiceNode services = 3;
+}
+
+message RecloserInventory {
+  int32 id = 1;
+  string model = 2;
+  repeated Translation translations = 3;
+  repeated FirmwareInventory firmwares = 4;
+}
+
+message FullInventoryResponse { repeated RecloserInventory reclosers = 1; }
+
+message ServiceTreeRequest { int32 firmware_id = 1; }
 
 message Feature {
   int32 id = 1;
-  string name = 2;
-  string description = 3;
+  string feature_key = 2;
+  repeated Translation translations = 3;
 }
 
 message ServiceNode {
   int32 id = 1;
   string service_key = 2;
-  string display_name = 3;
+  repeated Translation translations = 3;
   repeated Feature features = 4;
   repeated ServiceNode children = 5;
 }
 
-message ServiceTreeResponse {
-  repeated ServiceNode top_level_services = 1;
-}
+message ServiceTreeResponse { repeated ServiceNode top_level_services = 1; }
 
 // Comparison messages
 message CompareServiceTreesRequest {
@@ -64,3 +129,34 @@ message CompareServiceTreesResponse {
   repeated ServiceDifference differences = 3;
   string summary = 4; // e.g., "5 services added, 2 removed, 3 modified"
 }
+
+message ScreenLayoutRequest { int32 service_id = 1; }
+
+message LayoutLimit {
+  string key = 1;   // e.g., "MIN_VALUE"
+  string value = 2; // e.g., "0"
+}
+
+message Translation {
+  string language_code = 1;
+  string value = 2;
+}
+
+message FeatureLayoutDetail {
+  int32 feature_id = 1;
+  string feature_key = 2;
+  repeated Translation translations = 3;
+  string component_type = 4;
+  string component_key = 5;
+  repeated LayoutLimit limits = 6;
+}
+
+message ServiceLayout {
+  int32 service_id = 1;
+  string service_key = 2;
+  repeated Translation translations = 3;
+  repeated FeatureLayoutDetail features = 4;
+  repeated ServiceLayout children = 5;
+}
+
+message ScreenLayoutResponse { ServiceLayout service_layout = 1; }

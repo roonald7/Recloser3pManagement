@@ -52,8 +52,7 @@ add_custom_command(
     DEPENDS "${PROTO_PATH}"
 )
 
-# Include directories
-include_directories(include external/sqlite "${CMAKE_CURRENT_BINARY_DIR}")
+
 
 # Create the executable
 add_executable(${PROJECT_NAME} 
@@ -64,13 +63,38 @@ add_executable(${PROJECT_NAME}
     "${GRPC_SRC}"
 )
 
+# Include directories
+target_include_directories(${PROJECT_NAME} PRIVATE
+    include
+    external/sqlite
+    "${CMAKE_CURRENT_BINARY_DIR}"
+)
+
 # Link libraries
 target_link_libraries(${PROJECT_NAME} PRIVATE 
-    pthread 
-    dl
     gRPC::grpc++
     protobuf::libprotobuf
 )
+
+# Platform-specific libraries (only for Linux)
+if(UNIX AND NOT APPLE)
+    target_link_libraries(${PROJECT_NAME} PRIVATE pthread dl)
+endif()
+
+# MSVC-specific compiler options
+if(MSVC)
+    target_compile_options(${PROJECT_NAME} PRIVATE 
+        /W4                    # Warning level 4
+        /MP                    # Multi-processor compilation
+        /utf-8                 # UTF-8 encoding
+        /Zc:preprocessor       # Standards-conforming preprocessor
+    )
+    
+    # Suppress SQLite warnings in third-party code
+    set_source_files_properties(${SQLITE_SOURCES} PROPERTIES
+        COMPILE_FLAGS "/wd4996 /wd4244 /wd4267"
+    )
+endif()
 
 # Configure output directories
 set_target_properties(${PROJECT_NAME} PROPERTIES
