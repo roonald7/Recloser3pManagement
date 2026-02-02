@@ -152,8 +152,8 @@ std::vector<FirmwareVersionRecord> RecloserManager::getFirmwareVersionsForReclos
     return records;
 }
 
-bool RecloserManager::addService(const std::string& serviceKey, const std::string& descKey, int parentId) {
-    const char* sql = "INSERT INTO Services (service_key, description_key, parent_id) VALUES (?, ?, ?);";
+bool RecloserManager::addService(const std::string& serviceKey, const std::string& descKey, int firmwareId, int parentId) {
+    const char* sql = "INSERT INTO Services (service_key, description_key, parent_id, firmware_id) VALUES (?, ?, ?, ?);";
     sqlite3_stmt* stmt;
     if (sqlite3_prepare_v2(db, sql, -1, &stmt, nullptr) != SQLITE_OK) return false;
     
@@ -164,6 +164,7 @@ bool RecloserManager::addService(const std::string& serviceKey, const std::strin
     } else {
         sqlite3_bind_null(stmt, 3);
     }
+    sqlite3_bind_int(stmt, 4, firmwareId);
     
     int rc = sqlite3_step(stmt);
     sqlite3_finalize(stmt);
@@ -172,7 +173,7 @@ bool RecloserManager::addService(const std::string& serviceKey, const std::strin
 
 std::vector<ServiceRecord> RecloserManager::getAllServices() {
     std::vector<ServiceRecord> records;
-    const char* sql = "SELECT id, service_key, description_key, IFNULL(parent_id, 0) FROM Services;";
+    const char* sql = "SELECT id, service_key, description_key, IFNULL(parent_id, 0), firmware_id FROM Services;";
     sqlite3_stmt* stmt;
 
     if (sqlite3_prepare_v2(db, sql, -1, &stmt, nullptr) == SQLITE_OK) {
@@ -182,6 +183,7 @@ std::vector<ServiceRecord> RecloserManager::getAllServices() {
             rec.service_key = reinterpret_cast<const char*>(sqlite3_column_text(stmt, 1));
             rec.description_key = reinterpret_cast<const char*>(sqlite3_column_text(stmt, 2));
             rec.parent_id = sqlite3_column_int(stmt, 3);
+            rec.firmware_id = sqlite3_column_int(stmt, 4);
             records.push_back(rec);
         }
     }
@@ -189,13 +191,13 @@ std::vector<ServiceRecord> RecloserManager::getAllServices() {
     return records;
 }
 
-std::vector<ServiceRecord> RecloserManager::getServicesByParent(int parentId) {
+std::vector<ServiceRecord> RecloserManager::getServicesByParentAndFirmware(int parentId, int firmwareId) {
     std::vector<ServiceRecord> records;
     const char* sql;
     if (parentId > 0) {
-        sql = "SELECT id, service_key, description_key, parent_id FROM Services WHERE parent_id = ?;";
+        sql = "SELECT id, service_key, description_key, parent_id, firmware_id FROM Services WHERE parent_id = ? AND firmware_id = ?;";
     } else {
-        sql = "SELECT id, service_key, description_key, parent_id FROM Services WHERE parent_id IS NULL;";
+        sql = "SELECT id, service_key, description_key, parent_id, firmware_id FROM Services WHERE parent_id IS NULL AND firmware_id = ?;";
     }
     
     sqlite3_stmt* stmt;
@@ -203,6 +205,9 @@ std::vector<ServiceRecord> RecloserManager::getServicesByParent(int parentId) {
     if (sqlite3_prepare_v2(db, sql, -1, &stmt, nullptr) == SQLITE_OK) {
         if (parentId > 0) {
             sqlite3_bind_int(stmt, 1, parentId);
+            sqlite3_bind_int(stmt, 2, firmwareId);
+        } else {
+            sqlite3_bind_int(stmt, 1, firmwareId);
         }
         while (sqlite3_step(stmt) == SQLITE_ROW) {
             ServiceRecord rec;
@@ -210,6 +215,39 @@ std::vector<ServiceRecord> RecloserManager::getServicesByParent(int parentId) {
             rec.service_key = reinterpret_cast<const char*>(sqlite3_column_text(stmt, 1));
             rec.description_key = reinterpret_cast<const char*>(sqlite3_column_text(stmt, 2));
             rec.parent_id = sqlite3_column_int(stmt, 3);
+            rec.firmware_id = sqlite3_column_int(stmt, 4);
+            records.push_back(rec);
+        }
+    }
+    sqlite3_finalize(stmt);
+    return records;
+}
+
+bool RecloserManager::addFeature(const std::string& descKey, int serviceId) {
+    const char* sql = "INSERT INTO Features (description_key, service_id) VALUES (?, ?);";
+    sqlite3_stmt* stmt;
+    if (sqlite3_prepare_v2(db, sql, -1, &stmt, nullptr) != SQLITE_OK) return false;
+    
+    sqlite3_bind_text(stmt, 1, descKey.c_str(), -1, SQLITE_TRANSIENT);
+    sqlite3_bind_int(stmt, 2, serviceId);
+    
+    int rc = sqlite3_step(stmt);
+    sqlite3_finalize(stmt);
+    return rc == SQLITE_DONE;
+}
+
+std::vector<FeatureRecord> RecloserManager::getFeaturesByService(int serviceId) {
+    std::vector<FeatureRecord> records;
+    const char* sql = "SELECT id, description_key, service_id FROM Features WHERE service_id = ?;";
+    sqlite3_stmt* stmt;
+
+    if (sqlite3_prepare_v2(db, sql, -1, &stmt, nullptr) == SQLITE_OK) {
+        sqlite3_bind_int(stmt, 1, serviceId);
+        while (sqlite3_step(stmt) == SQLITE_ROW) {
+            FeatureRecord rec;
+            rec.id = sqlite3_column_int(stmt, 0);
+            rec.description_key = reinterpret_cast<const char*>(sqlite3_column_text(stmt, 1));
+            rec.service_id = sqlite3_column_int(stmt, 2);
             records.push_back(rec);
         }
     }

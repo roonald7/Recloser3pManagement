@@ -1,0 +1,12 @@
+{
+    "$schema": "https://raw.githubusercontent.com/microsoft/vcpkg/master/scripts/vcpkg.schema.json",
+    "name": "opencv-course",
+    "version": "0.0.2",
+    "builtin-baseline": "83972272512ce4ede5fc3b2ba98f6468b179f192",
+    "dependencies": [
+        "clipp",
+        "nlohmann-json",
+        "fmt",
+        "grpc"
+    ]
+}

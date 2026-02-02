@@ -1,0 +1,94 @@
+{
+    "version": 2,
+    "cmakeMinimumRequired": {
+        "major": 3,
+        "minor": 20,
+        "patch": 0
+    },
+    "configurePresets": [
+        {
+            "name": "default",
+            "hidden": true,
+            "generator": "Ninja",
+            "binaryDir": "${sourceDir}/build/${presetName}",
+            "cacheVariables": {
+                "CMAKE_EXPORT_COMPILE_COMMANDS": "ON",
+                "CMAKE_TOOLCHAIN_FILE": "$env{VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake"
+            }
+        },
+        {
+            "name": "macOs-rel",
+            "displayName": "MacOs Release Config",
+            "generator": "Ninja",
+            "inherits": "default",
+            "cacheVariables": {
+                "CMAKE_BUILD_TYPE": "Release",
+                "CMAKE_MSVC_RUNTIME_LIBRARY": "MultiThreaded",
+                "VCPKG_TARGET_TRIPLET": "arm64-osx"
+            }
+        },
+        {
+            "name": "macOs-dbg",
+            "displayName": "MacOs Debug Config",
+            "generator": "Ninja",
+            "inherits": "default",
+            "cacheVariables": {
+                "CMAKE_BUILD_TYPE": "Debug",
+                "VCPKG_TARGET_TRIPLET": "arm64-osx"
+            }
+        },
+        {
+            "name": "win-rel",
+            "displayName": "Windows Release Config",
+            "generator": "Ninja",
+            "inherits": "default",
+            "cacheVariables": {
+                "CMAKE_BUILD_TYPE": "Release",
+                "CMAKE_MSVC_RUNTIME_LIBRARY": "MultiThreaded",
+                "VCPKG_TARGET_TRIPLET": "x86-windows-static"
+            }
+        },
+        {
+            "name": "linux-rel",
+            "displayName": "Linux Release Config",
+            "generator": "Ninja",
+            "inherits": "default",
+            "cacheVariables": {
+                "CMAKE_BUILD_TYPE": "Release",
+                "VCPKG_TARGET_TRIPLET": "x64-linux"
+            }
+        },
+        {
+            "name": "linux-dbg",
+            "displayName": "Linux Debug Config",
+            "generator": "Ninja",
+            "inherits": "default",
+            "cacheVariables": {
+                "CMAKE_BUILD_TYPE": "Debug",
+                "VCPKG_TARGET_TRIPLET": "x64-linux"
+            }
+        }
+    ],
+    "buildPresets": [
+        {
+            "name": "macOs-dbg",
+            "configurePreset": "macOs-dbg"
+        },
+        {
+            "name": "macOs-rel",
+            "configurePreset": "macOs-rel"
+        },
+        {
+            "name": "win-rel",
+            "configurePreset": "win-rel"
+        },
+        {
+            "name": "linux-dbg",
+            "configurePreset": "linux-dbg"
+        },
+        {
+            "name": "linux-rel",
+            "configurePreset": "linux-rel"
+        }
+    ]
+}

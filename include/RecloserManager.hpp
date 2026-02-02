@@ -28,6 +28,13 @@ struct ServiceRecord {
     std::string service_key;
     std::string description_key;
     int parent_id; // 0 if parent
+    int firmware_id;
+};
+
+struct FeatureRecord {
+    int id;
+    std::string description_key;
+    int service_id;
 };
 
 class RecloserManager {
@@ -52,9 +59,13 @@ public:
     std::vector<FirmwareVersionRecord> getFirmwareVersionsForRecloser(int recloserId);
 
     // Service methods
-    bool addService(const std::string& serviceKey, const std::string& descKey, int parentId = 0);
+    bool addService(const std::string& serviceKey, const std::string& descKey, int firmwareId, int parentId = 0);
     std::vector<ServiceRecord> getAllServices();
-    std::vector<ServiceRecord> getServicesByParent(int parentId);
+    std::vector<ServiceRecord> getServicesByParentAndFirmware(int parentId, int firmwareId);
+
+    // Feature methods
+    bool addFeature(const std::string& descKey, int serviceId);
+    std::vector<FeatureRecord> getFeaturesByService(int serviceId);
 
 private:
     std::string dbPath;

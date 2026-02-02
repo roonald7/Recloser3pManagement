@@ -1,0 +1,66 @@
+syntax = "proto3";
+
+package recloser;
+
+service RecloserService {
+  rpc GetServiceTree(ServiceTreeRequest) returns (ServiceTreeResponse);
+  rpc CompareServiceTrees(CompareServiceTreesRequest) returns (CompareServiceTreesResponse);
+}
+
+message ServiceTreeRequest {
+  int32 firmware_id = 1;
+  string language_code = 2; // e.g., "enUs", "ptBr"
+}
+
+message Feature {
+  int32 id = 1;
+  string name = 2;
+  string description = 3;
+}
+
+message ServiceNode {
+  int32 id = 1;
+  string service_key = 2;
+  string display_name = 3;
+  repeated Feature features = 4;
+  repeated ServiceNode children = 5;
+}
+
+message ServiceTreeResponse {
+  repeated ServiceNode top_level_services = 1;
+}
+
+// Comparison messages
+message CompareServiceTreesRequest {
+  int32 firmware_id_1 = 1;
+  int32 firmware_id_2 = 2;
+  string language_code = 3;
+}
+
+enum DifferenceType {
+  ADDED = 0;
+  REMOVED = 1;
+  MODIFIED = 2;
+  UNCHANGED = 3;
+}
+
+message ServiceDifference {
+  string service_key = 1;
+  string display_name = 2;
+  DifferenceType difference_type = 3;
+  repeated FeatureDifference feature_differences = 4;
+  repeated ServiceDifference child_differences = 5;
+}
+
+message FeatureDifference {
+  string feature_name = 1;
+  string description = 2;
+  DifferenceType difference_type = 3;
+}
+
+message CompareServiceTreesResponse {
+  int32 firmware_id_1 = 1;
+  int32 firmware_id_2 = 2;
+  repeated ServiceDifference differences = 3;
+  string summary = 4; // e.g., "5 services added, 2 removed, 3 modified"
+}
