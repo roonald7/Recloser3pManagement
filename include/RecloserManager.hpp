@@ -44,6 +44,7 @@ public:
   ~RecloserManager();
 
   bool initialize();
+  bool migrate();
 
   // Translation methods
   bool addLanguage(const std::string &code, const std::string &name);
@@ -123,4 +124,5 @@ private:
   sqlite3 *db;
 
   bool runSchema();
+  int getCurrentVersion();
 };

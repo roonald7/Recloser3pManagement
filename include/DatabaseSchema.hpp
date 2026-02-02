@@ -1,14 +1,16 @@
 #pragma once
+#include <map>
 #include <string>
 #include <vector>
 
 namespace Schema {
 const std::vector<std::string> INITIALIZATION_SQL = {
+    "CREATE TABLE IF NOT EXISTS Migrations (id INTEGER PRIMARY KEY, version "
+    "INTEGER UNIQUE NOT NULL, applied_at DATETIME DEFAULT CURRENT_TIMESTAMP);",
     "CREATE TABLE IF NOT EXISTS Languages (code TEXT PRIMARY KEY NOT NULL, "
     "name TEXT NOT NULL);",
 
-    "CREATE TABLE IF NOT EXISTS Descriptions ("
-    "key TEXT PRIMARY KEY NOT NULL);",
+    "CREATE TABLE IF NOT EXISTS Descriptions (key TEXT PRIMARY KEY NOT NULL);",
 
     "CREATE TABLE IF NOT EXISTS Translations (id INTEGER PRIMARY KEY "
     "AUTOINCREMENT, description_key TEXT NOT NULL, language_code TEXT NOT "
@@ -40,8 +42,7 @@ const std::vector<std::string> INITIALIZATION_SQL = {
     "CREATE TABLE IF NOT EXISTS Component (id INTEGER PRIMARY KEY "
     "AUTOINCREMENT, type TEXT NOT NULL, key TEXT UNIQUE NOT NULL);",
 
-    "CREATE TABLE IF NOT EXISTS Limits ("
-    "id INTEGER PRIMARY KEY AUTOINCREMENT,"
+    "CREATE TABLE IF NOT EXISTS Limits (id INTEGER PRIMARY KEY AUTOINCREMENT, "
     "key TEXT UNIQUE NOT NULL);",
 
     // Insert default component types
@@ -78,5 +79,11 @@ const std::vector<std::string> INITIALIZATION_SQL = {
     "limit_id INTEGER NOT NULL,"
     "value TEXT NOT NULL,"
     "FOREIGN KEY (layout_id) REFERENCES FeatureLayout(id) ON DELETE CASCADE,"
-    "FOREIGN KEY (limit_id) REFERENCES Limits(id) ON DELETE CASCADE);"};
-}
+    "FOREIGN KEY (limit_id) REFERENCES Limits(id) ON DELETE CASCADE);",
+    "INSERT OR IGNORE INTO Migrations (version) VALUES (1);"};
+
+const std::map<int, std::vector<std::string>> MIGRATIONS_SQL = {
+    // Example for version 2:
+    // {2, {"ALTER TABLE ...", "UPDATE ..."}}
+};
+} // namespace Schema
