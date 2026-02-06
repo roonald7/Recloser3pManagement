@@ -63,6 +63,11 @@ int main() {
     manager.addKeyWithTranslations(
         "DEN_TP", {{"enUs", "TP denominator"}, {"ptBr", "Denominador do TP"}});
 
+    manager.addKeyWithTranslations(
+        "TC_WINDOW", {{"enUs", "TC Settings"}, {"ptBr", "Configurações TC"}});
+    manager.addKeyWithTranslations(
+        "TP_WINDOW", {{"enUs", "TP Settings"}, {"ptBr", "Configurações TP"}});
+
     // Setup Description Keys for Reclosers
     manager.addKeyWithTranslations(
         "ZEUS_NG_3P4W", {{"enUs", "Zeus NG 3P/4W"}, {"ptBr", "Zeus NG 3P/4W"}});
@@ -137,11 +142,21 @@ int main() {
     manager.linkFeatureToComponent(fTimeV2, "Time");
     manager.linkFeatureToComponent(fGmtV2, "Spinner");
 
-    int fNumTcV2 = manager.addFeature("NUM_TC", sfMultiplicationConstantsV2);
-    int fDenTcV2 = manager.addFeature("DEN_TC", sfMultiplicationConstantsV2);
-    int fNumTpV2 = manager.addFeature("NUM_TP", sfMultiplicationConstantsV2);
-    int fDenTpV2 = manager.addFeature("DEN_TP", sfMultiplicationConstantsV2);
+    int fTcWindow =
+        manager.addFeature("TC_WINDOW", sfMultiplicationConstantsV2);
+    int fTpWindow =
+        manager.addFeature("TP_WINDOW", sfMultiplicationConstantsV2);
+    int fNumTcV2 =
+        manager.addFeature("NUM_TC", sfMultiplicationConstantsV2, fTcWindow);
+    int fDenTcV2 =
+        manager.addFeature("DEN_TC", sfMultiplicationConstantsV2, fTcWindow);
+    int fNumTpV2 =
+        manager.addFeature("NUM_TP", sfMultiplicationConstantsV2, fTpWindow);
+    int fDenTpV2 =
+        manager.addFeature("DEN_TP", sfMultiplicationConstantsV2, fTpWindow);
 
+    manager.linkFeatureToComponent(fTcWindow, "Window");
+    manager.linkFeatureToComponent(fTpWindow, "Window");
     int fcNmTcV2 = manager.linkFeatureToComponent(fNumTcV2, "Integer");
     int fcDnTcV2 = manager.linkFeatureToComponent(fDenTcV2, "Integer");
     int fcNmTpV2 = manager.linkFeatureToComponent(fNumTpV2, "Integer");
@@ -155,6 +170,23 @@ int main() {
     manager.addComponentLimit(fcNmTpV2, "MAX_VALUE", "20000");
     manager.addComponentLimit(fcDnTpV2, "MIN_VALUE", "1");
     manager.addComponentLimit(fcDnTpV2, "MAX_VALUE", "10000");
+
+    // Example of Container / Window (New Firmware v3 for demonstration)
+    manager.addFirmwareVersion("v3.0.0", 1);
+    int sAdvanced =
+        manager.addService("ADVANCED_SETTINGS", 0); // Top levelService
+    int sfAdvancedV3 = manager.linkServiceToFirmware(sAdvanced, 5);
+
+    // Create a Window Feature
+    int fWindow = manager.addFeature("SETTINGS_WINDOW", sfAdvancedV3);
+    manager.linkFeatureToComponent(fWindow, "Window");
+
+    // Add child features to the Window (using new parent_feature_id arg)
+    int fWinDate = manager.addFeature("WIN_DATE", sfAdvancedV3, fWindow);
+    int fWinTime = manager.addFeature("WIN_TIME", sfAdvancedV3, fWindow);
+
+    manager.linkFeatureToComponent(fWinDate, "Date");
+    manager.linkFeatureToComponent(fWinTime, "Time");
   }
 
   // Start gRPC server in a separate thread

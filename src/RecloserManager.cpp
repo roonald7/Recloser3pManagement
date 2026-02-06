@@ -531,16 +531,20 @@ std::optional<ServiceRecord> RecloserManager::getServiceById(int id) {
 }
 
 int RecloserManager::addFeature(const std::string &descKey,
-                                int serviceFirmwareId) {
+                                int serviceFirmwareId, int parentFeatureId) {
   const char *sql =
-      "INSERT INTO Features (description_key, service_firmware_id) "
-      "VALUES (?, ?);";
+      "INSERT INTO Features (description_key, service_firmware_id, "
+      "parent_feature_id) VALUES (?, ?, ?);";
   sqlite3_stmt *stmt;
   if (sqlite3_prepare_v2(db, sql, -1, &stmt, nullptr) != SQLITE_OK)
     return 0;
 
   sqlite3_bind_text(stmt, 1, descKey.c_str(), -1, SQLITE_TRANSIENT);
   sqlite3_bind_int(stmt, 2, serviceFirmwareId);
+  if (parentFeatureId > 0)
+    sqlite3_bind_int(stmt, 3, parentFeatureId);
+  else
+    sqlite3_bind_null(stmt, 3);
 
   int rc = sqlite3_step(stmt);
   sqlite3_finalize(stmt);
@@ -552,16 +556,22 @@ int RecloserManager::addFeature(const std::string &descKey,
 }
 
 bool RecloserManager::updateFeature(int id, const std::string &descKey,
-                                    int serviceFirmwareId) {
+                                    int serviceFirmwareId,
+                                    int parentFeatureId) {
   const char *sql = "UPDATE Features SET description_key = ?, "
-                    "service_firmware_id = ? WHERE id = ?;";
+                    "service_firmware_id = ?, parent_feature_id = ? WHERE id = "
+                    "?;";
   sqlite3_stmt *stmt;
   if (sqlite3_prepare_v2(db, sql, -1, &stmt, nullptr) != SQLITE_OK)
     return false;
 
   sqlite3_bind_text(stmt, 1, descKey.c_str(), -1, SQLITE_TRANSIENT);
   sqlite3_bind_int(stmt, 2, serviceFirmwareId);
-  sqlite3_bind_int(stmt, 3, id);
+  if (parentFeatureId > 0)
+    sqlite3_bind_int(stmt, 3, parentFeatureId);
+  else
+    sqlite3_bind_null(stmt, 3);
+  sqlite3_bind_int(stmt, 4, id);
 
   int rc = sqlite3_step(stmt);
   sqlite3_finalize(stmt);
@@ -583,7 +593,8 @@ bool RecloserManager::deleteFeature(int id) {
 std::vector<FeatureRecord>
 RecloserManager::getFeaturesByServiceFirmware(int serviceFirmwareId) {
   std::vector<FeatureRecord> records;
-  const char *sql = "SELECT id, description_key, service_firmware_id FROM "
+  const char *sql = "SELECT id, description_key, service_firmware_id, "
+                    "IFNULL(parent_feature_id, 0) FROM "
                     "Features WHERE service_firmware_id = ?;";
   sqlite3_stmt *stmt;
 
@@ -595,6 +606,7 @@ RecloserManager::getFeaturesByServiceFirmware(int serviceFirmwareId) {
       rec.description_key =
           reinterpret_cast<const char *>(sqlite3_column_text(stmt, 1));
       rec.service_firmware_id = sqlite3_column_int(stmt, 2);
+      rec.parent_feature_id = sqlite3_column_int(stmt, 3);
       records.push_back(rec);
     }
   }
@@ -692,8 +704,12 @@ RecloserManager::getScreenLayout(int serviceFirmwareId) {
   layout.translations = getTranslationsForKey(layout.description_key);
 
   // Get features for this service-firmware combination
+  std::map<int, FeatureComponentRecord> featureMap;
+
+  // Get ALL features for this service-firmware combination first
   const char *layoutSql =
-      "SELECT f.id, f.description_key, c.type, fc.id "
+      "SELECT f.id, f.description_key, c.type, fc.id, "
+      "IFNULL(f.parent_feature_id, 0) "
       "FROM Features f "
       "LEFT JOIN FeatureComponent fc ON f.id = fc.feature_id "
       "LEFT JOIN Component c ON fc.component_id = c.id "
@@ -709,6 +725,7 @@ RecloserManager::getScreenLayout(int serviceFirmwareId) {
       rec.feature_id = sqlite3_column_int(layoutStmt, 0);
       rec.feature_key =
           reinterpret_cast<const char *>(sqlite3_column_text(layoutStmt, 1));
+      rec.parent_feature_id = sqlite3_column_int(layoutStmt, 4);
 
       rec.translations = getTranslationsForKey(rec.feature_key);
 
@@ -739,10 +756,35 @@ RecloserManager::getScreenLayout(int serviceFirmwareId) {
         }
         sqlite3_finalize(limitStmt);
       }
-      layout.features.push_back(rec);
+      featureMap[rec.feature_id] = rec;
     }
   }
   sqlite3_finalize(layoutStmt);
+
+  // Note: The loop above adds ALL children to parents, but we only want to push
+  // ROOTS to layout.features. However, the issue is that children are ALREADY
+  // inside the map. When we push `rec` to children, we are pushing a COPY. We
+  // need to pointer or second pass. Better approach:
+  // 1. Populate Map.
+  // 2. Iterate Map. If parent_id > 0, add to parent's children list.
+  // 3. Iterate Map AGAIN. If parent_id == 0, add to layout.features.
+
+  // Reset and redo correctly:
+  layout.features.clear();
+
+  // Link children
+  for (auto &[id, rec] : featureMap) {
+    if (rec.parent_feature_id > 0 && featureMap.count(rec.parent_feature_id)) {
+      featureMap[rec.parent_feature_id].children.push_back(rec);
+    }
+  }
+
+  // Add roots to final layout
+  for (const auto &[id, rec] : featureMap) {
+    if (rec.parent_feature_id == 0) {
+      layout.features.push_back(rec);
+    }
+  }
 
   // Get firmwareId from sfId to use for children
   int firmwareId = 0;

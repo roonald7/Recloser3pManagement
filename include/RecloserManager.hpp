@@ -34,6 +34,7 @@ struct FeatureRecord {
   int id;
   std::string description_key;
   int service_firmware_id;
+  int parent_feature_id;
 };
 
 class RecloserManager {
@@ -85,8 +86,10 @@ public:
   std::optional<ServiceRecord> getServiceById(int id);
 
   // Feature methods
-  int addFeature(const std::string &descKey, int serviceFirmwareId);
-  bool updateFeature(int id, const std::string &descKey, int serviceFirmwareId);
+  int addFeature(const std::string &descKey, int serviceFirmwareId,
+                 int parentFeatureId = 0);
+  bool updateFeature(int id, const std::string &descKey, int serviceFirmwareId,
+                     int parentFeatureId = 0);
   bool deleteFeature(int id);
   std::vector<FeatureRecord>
   getFeaturesByServiceFirmware(int serviceFirmwareId);
@@ -104,10 +107,12 @@ public:
 
   struct FeatureComponentRecord {
     int feature_id;
+    int parent_feature_id;
     std::string feature_key;
     std::vector<TranslationRecord> translations;
     std::string component_type;
     std::vector<ComponentLimitRecord> limits;
+    std::vector<FeatureComponentRecord> children;
   };
 
   struct ServiceLayoutRecord {

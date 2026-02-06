@@ -146,6 +146,7 @@ message FeatureComponentDetail {
   repeated Translation translations = 3;
   string component_type = 4;
   repeated ComponentLimit limits = 5;
+  repeated FeatureComponentDetail children = 6;
 }
 
 message ServiceLayout {

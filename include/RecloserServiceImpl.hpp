@@ -100,6 +100,8 @@ private:
   // Helper to build screen layout recursively
   void populateServiceLayout(const RecloserManager::ServiceLayoutRecord &rec,
                              ServiceLayout *layout);
+  void populateFeatureDetail(const RecloserManager::FeatureComponentRecord &rec,
+                             FeatureComponentDetail *detail);
 };
 
 } // namespace recloser

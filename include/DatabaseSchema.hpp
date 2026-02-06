@@ -42,9 +42,11 @@ const std::vector<std::string> INITIALIZATION_SQL = {
 
     "CREATE TABLE IF NOT EXISTS Features (id INTEGER PRIMARY KEY "
     "AUTOINCREMENT, description_key TEXT NOT NULL, service_firmware_id INTEGER "
-    "NOT "
-    "NULL, FOREIGN KEY (description_key) REFERENCES Descriptions(key), FOREIGN "
+    "NOT NULL, parent_feature_id INTEGER, "
+    "FOREIGN KEY (description_key) REFERENCES Descriptions(key), FOREIGN "
     "KEY (service_firmware_id) REFERENCES ServiceFirmware(id) ON DELETE "
+    "CASCADE, FOREIGN KEY (parent_feature_id) REFERENCES Features(id) ON "
+    "DELETE "
     "CASCADE);",
 
     "CREATE TABLE IF NOT EXISTS Component (id INTEGER PRIMARY KEY "
@@ -65,6 +67,10 @@ const std::vector<std::string> INITIALIZATION_SQL = {
     "INSERT OR IGNORE INTO Component (type) VALUES ('CheckBox');",
     "INSERT OR IGNORE INTO Component (type) VALUES ('Toggle');",
     "INSERT OR IGNORE INTO Component (type) VALUES ('Button');",
+    "INSERT OR IGNORE INTO Component (type) VALUES ('Window');",
+    "INSERT OR IGNORE INTO Component (type) VALUES ('AnchorPane');",
+    "INSERT OR IGNORE INTO Component (type) VALUES ('Panel');",
+    "INSERT OR IGNORE INTO Component (type) VALUES ('TabControl');",
 
     // Insert default limit keys
     "INSERT OR IGNORE INTO Limits (key) VALUES ('MIN_VALUE');",

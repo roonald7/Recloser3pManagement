@@ -284,27 +284,38 @@ void RecloserServiceImpl::populateServiceLayout(
 
   for (const auto &feat : rec.features) {
     FeatureComponentDetail *detail = layout->add_features();
-    detail->set_feature_id(feat.feature_id);
-    detail->set_feature_key(feat.feature_key);
-
-    for (const auto &t : feat.translations) {
-      auto *trans = detail->add_translations();
-      trans->set_language_code(t.language_code);
-      trans->set_value(t.value);
-    }
-
-    detail->set_component_type(feat.component_type);
-
-    for (const auto &lim : feat.limits) {
-      ComponentLimit *limit = detail->add_limits();
-      limit->set_key(lim.key);
-      limit->set_value(lim.value);
-    }
+    populateFeatureDetail(feat, detail);
   }
 
   for (const auto &childRec : rec.children) {
     ServiceLayout *childLayout = layout->add_children();
     populateServiceLayout(childRec, childLayout);
+  }
+}
+
+void RecloserServiceImpl::populateFeatureDetail(
+    const RecloserManager::FeatureComponentRecord &rec,
+    FeatureComponentDetail *detail) {
+  detail->set_feature_id(rec.feature_id);
+  detail->set_feature_key(rec.feature_key);
+
+  for (const auto &t : rec.translations) {
+    auto *trans = detail->add_translations();
+    trans->set_language_code(t.language_code);
+    trans->set_value(t.value);
+  }
+
+  detail->set_component_type(rec.component_type);
+
+  for (const auto &lim : rec.limits) {
+    ComponentLimit *limit = detail->add_limits();
+    limit->set_key(lim.key);
+    limit->set_value(lim.value);
+  }
+
+  for (const auto &child : rec.children) {
+    FeatureComponentDetail *childDetail = detail->add_children();
+    populateFeatureDetail(child, childDetail);
   }
 }
 

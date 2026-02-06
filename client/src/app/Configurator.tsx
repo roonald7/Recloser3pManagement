@@ -116,6 +116,49 @@ export default function Configurator({ firmwareId, services }: ConfiguratorProps
         }
     };
 
+    const renderFeatureBlock = (feat: any) => {
+        const isContainer = feat.children && feat.children.length > 0;
+
+        return (
+            <div key={feat.feature_id} className={isContainer ? "container-block" : "feature-form-item"} style={isContainer ? { gridColumn: '1 / -1', marginTop: '1rem' } : {}}>
+                {isContainer ? (
+                    <div className="container-wrapper" style={{
+                        border: '1px solid var(--glass-border)',
+                        borderRadius: '12px',
+                        padding: '1.5rem',
+                        background: 'rgba(255,255,255,0.03)'
+                    }}>
+                        <div className="label-container" style={{ marginBottom: '1rem', borderBottom: '1px solid var(--glass-border)', paddingBottom: '0.5rem' }}>
+                            <div className="feature-label" style={{ fontSize: '1.1rem', color: 'var(--accent)' }}>
+                                {getTranslation(feat.translations)}
+                            </div>
+                            <div className="badge" style={{ fontSize: '0.65rem' }}>
+                                {feat.component_type}
+                            </div>
+                        </div>
+                        <div className="feature-grid">
+                            {feat.children.map((child: any) => renderFeatureBlock(child))}
+                        </div>
+                    </div>
+                ) : (
+                    <>
+                        <div className="label-container">
+                            <div className="feature-label">
+                                {getTranslation(feat.translations)}
+                            </div>
+                            <div className="badge" style={{ color: 'var(--text-muted)', fontSize: '0.65rem' }}>
+                                {feat.component_type}
+                            </div>
+                        </div>
+                        <div className="control-container">
+                            {renderComponent(feat)}
+                        </div>
+                    </>
+                )}
+            </div>
+        );
+    };
+
     const renderLayoutContent = (data: any, depth: number = 0) => {
         if (!data) return null;
 
@@ -142,21 +185,7 @@ export default function Configurator({ firmwareId, services }: ConfiguratorProps
 
                 {hasFeatures && (
                     <div className="feature-grid">
-                        {data.features.map((feat: any) => (
-                            <div key={feat.feature_id} className="feature-form-item">
-                                <div className="label-container">
-                                    <div className="feature-label">
-                                        {getTranslation(feat.translations)}
-                                    </div>
-                                    <div className="badge" style={{ color: 'var(--text-muted)', fontSize: '0.65rem' }}>
-                                        {feat.component_type}
-                                    </div>
-                                </div>
-                                <div className="control-container">
-                                    {renderComponent(feat)}
-                                </div>
-                            </div>
-                        ))}
+                        {data.features.map((feat: any) => renderFeatureBlock(feat))}
                     </div>
                 )}
 
