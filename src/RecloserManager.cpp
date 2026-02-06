@@ -119,6 +119,22 @@ bool RecloserManager::addTranslation(const std::string &key,
   return rc == SQLITE_DONE;
 }
 
+bool RecloserManager::addKeyWithTranslations(
+    const std::string &key,
+    const std::vector<std::pair<std::string, std::string>> &translations) {
+  if (!addDescriptionKey(key)) {
+    return false;
+  }
+
+  bool success = true;
+  for (const auto &t : translations) {
+    if (!addTranslation(key, t.first, t.second)) {
+      success = false;
+    }
+  }
+  return success;
+}
+
 std::string RecloserManager::getTranslation(const std::string &key,
                                             const std::string &langCode) {
   const char *sql = "SELECT value FROM Translations WHERE description_key = ? "
@@ -160,33 +176,27 @@ RecloserManager::getTranslationsForKey(const std::string &key) {
   return results;
 }
 
-bool RecloserManager::addRecloser(const std::string &key,
-                                  const std::string &model) {
-  const char *sql =
-      "INSERT INTO Reclosers (description_key, model) VALUES (?, ?);";
+bool RecloserManager::addRecloser(const std::string &key) {
+  const char *sql = "INSERT INTO Reclosers (description_key) VALUES (?);";
   sqlite3_stmt *stmt;
   if (sqlite3_prepare_v2(db, sql, -1, &stmt, nullptr) != SQLITE_OK)
     return false;
 
   sqlite3_bind_text(stmt, 1, key.c_str(), -1, SQLITE_TRANSIENT);
-  sqlite3_bind_text(stmt, 2, model.c_str(), -1, SQLITE_TRANSIENT);
 
   int rc = sqlite3_step(stmt);
   sqlite3_finalize(stmt);
   return rc == SQLITE_DONE;
 }
 
-bool RecloserManager::updateRecloser(int id, const std::string &key,
-                                     const std::string &model) {
-  const char *sql =
-      "UPDATE Reclosers SET description_key = ?, model = ? WHERE id = ?;";
+bool RecloserManager::updateRecloser(int id, const std::string &key) {
+  const char *sql = "UPDATE Reclosers SET description_key = ? WHERE id = ?;";
   sqlite3_stmt *stmt;
   if (sqlite3_prepare_v2(db, sql, -1, &stmt, nullptr) != SQLITE_OK)
     return false;
 
   sqlite3_bind_text(stmt, 1, key.c_str(), -1, SQLITE_TRANSIENT);
-  sqlite3_bind_text(stmt, 2, model.c_str(), -1, SQLITE_TRANSIENT);
-  sqlite3_bind_int(stmt, 3, id);
+  sqlite3_bind_int(stmt, 2, id);
 
   int rc = sqlite3_step(stmt);
   sqlite3_finalize(stmt);
@@ -207,7 +217,7 @@ bool RecloserManager::deleteRecloser(int id) {
 
 std::vector<RecloserRecord> RecloserManager::getAllReclosers() {
   std::vector<RecloserRecord> records;
-  const char *sql = "SELECT id, description_key, model FROM Reclosers;";
+  const char *sql = "SELECT id, description_key FROM Reclosers;";
   sqlite3_stmt *stmt;
 
   if (sqlite3_prepare_v2(db, sql, -1, &stmt, nullptr) == SQLITE_OK) {
@@ -216,7 +226,6 @@ std::vector<RecloserRecord> RecloserManager::getAllReclosers() {
       rec.id = sqlite3_column_int(stmt, 0);
       rec.description_key =
           reinterpret_cast<const char *>(sqlite3_column_text(stmt, 1));
-      rec.model = reinterpret_cast<const char *>(sqlite3_column_text(stmt, 2));
       records.push_back(rec);
     }
   }
@@ -225,8 +234,7 @@ std::vector<RecloserRecord> RecloserManager::getAllReclosers() {
 }
 
 std::optional<RecloserRecord> RecloserManager::getRecloserById(int id) {
-  const char *sql =
-      "SELECT id, description_key, model FROM Reclosers WHERE id = ?;";
+  const char *sql = "SELECT id, description_key FROM Reclosers WHERE id = ?;";
   sqlite3_stmt *stmt;
   std::optional<RecloserRecord> result = std::nullopt;
 
@@ -237,7 +245,6 @@ std::optional<RecloserRecord> RecloserManager::getRecloserById(int id) {
       rec.id = sqlite3_column_int(stmt, 0);
       rec.description_key =
           reinterpret_cast<const char *>(sqlite3_column_text(stmt, 1));
-      rec.model = reinterpret_cast<const char *>(sqlite3_column_text(stmt, 2));
       result = rec;
     }
   }
@@ -334,47 +341,98 @@ RecloserManager::getFirmwareVersionById(int id) {
   return result;
 }
 
-bool RecloserManager::addService(const std::string &serviceKey,
-                                 const std::string &descKey, int firmwareId,
-                                 int parentId) {
-  const char *sql = "INSERT INTO Services (service_key, description_key, "
-                    "parent_id, firmware_id) VALUES (?, ?, ?, ?);";
+int RecloserManager::addService(const std::string &descKey, int parentId) {
+  const char *sql =
+      "INSERT INTO Services (description_key, parent_id) VALUES (?, ?);";
+  sqlite3_stmt *stmt;
+  if (sqlite3_prepare_v2(db, sql, -1, &stmt, nullptr) != SQLITE_OK)
+    return 0;
+
+  sqlite3_bind_text(stmt, 1, descKey.c_str(), -1, SQLITE_TRANSIENT);
+  if (parentId > 0) {
+    sqlite3_bind_int(stmt, 2, parentId);
+  } else {
+    sqlite3_bind_null(stmt, 2);
+  }
+
+  int rc = sqlite3_step(stmt);
+  sqlite3_finalize(stmt);
+
+  if (rc == SQLITE_DONE) {
+    return static_cast<int>(sqlite3_last_insert_rowid(db));
+  }
+  return 0;
+}
+
+bool RecloserManager::updateService(int id, const std::string &descKey,
+                                    int parentId) {
+  const char *sql = "UPDATE Services SET description_key = ?, "
+                    "parent_id = ? WHERE id = ?;";
   sqlite3_stmt *stmt;
   if (sqlite3_prepare_v2(db, sql, -1, &stmt, nullptr) != SQLITE_OK)
     return false;
 
-  sqlite3_bind_text(stmt, 1, serviceKey.c_str(), -1, SQLITE_TRANSIENT);
-  sqlite3_bind_text(stmt, 2, descKey.c_str(), -1, SQLITE_TRANSIENT);
+  sqlite3_bind_text(stmt, 1, descKey.c_str(), -1, SQLITE_TRANSIENT);
   if (parentId > 0) {
-    sqlite3_bind_int(stmt, 3, parentId);
+    sqlite3_bind_int(stmt, 2, parentId);
   } else {
-    sqlite3_bind_null(stmt, 3);
+    sqlite3_bind_null(stmt, 2);
   }
-  sqlite3_bind_int(stmt, 4, firmwareId);
+  sqlite3_bind_int(stmt, 3, id);
 
   int rc = sqlite3_step(stmt);
   sqlite3_finalize(stmt);
   return rc == SQLITE_DONE;
 }
 
-bool RecloserManager::updateService(int id, const std::string &serviceKey,
-                                    const std::string &descKey, int firmwareId,
-                                    int parentId) {
-  const char *sql = "UPDATE Services SET service_key = ?, description_key = ?, "
-                    "parent_id = ?, firmware_id = ? WHERE id = ?;";
+int RecloserManager::linkServiceToFirmware(int serviceId, int firmwareId) {
+  const char *sql = "INSERT OR IGNORE INTO ServiceFirmware (service_id, "
+                    "firmware_id) VALUES (?, ?);";
+  sqlite3_stmt *stmt;
+  if (sqlite3_prepare_v2(db, sql, -1, &stmt, nullptr) != SQLITE_OK)
+    return 0;
+
+  sqlite3_bind_int(stmt, 1, serviceId);
+  sqlite3_bind_int(stmt, 2, firmwareId);
+
+  int rc = sqlite3_step(stmt);
+  sqlite3_finalize(stmt);
+
+  if (rc == SQLITE_DONE) {
+    return static_cast<int>(sqlite3_last_insert_rowid(db));
+  } else {
+    // If it exists, find the ID
+    return getServiceFirmwareId(serviceId, firmwareId);
+  }
+}
+
+int RecloserManager::getServiceFirmwareId(int serviceId, int firmwareId) {
+  const char *sql = "SELECT id FROM ServiceFirmware WHERE service_id = ? AND "
+                    "firmware_id = ?;";
+  sqlite3_stmt *stmt;
+  int id = 0;
+
+  if (sqlite3_prepare_v2(db, sql, -1, &stmt, nullptr) == SQLITE_OK) {
+    sqlite3_bind_int(stmt, 1, serviceId);
+    sqlite3_bind_int(stmt, 2, firmwareId);
+
+    if (sqlite3_step(stmt) == SQLITE_ROW) {
+      id = sqlite3_column_int(stmt, 0);
+    }
+    sqlite3_finalize(stmt);
+  }
+  return id;
+}
+
+bool RecloserManager::unlinkServiceFromFirmware(int serviceId, int firmwareId) {
+  const char *sql = "DELETE FROM ServiceFirmware WHERE service_id = ? "
+                    "AND firmware_id = ?;";
   sqlite3_stmt *stmt;
   if (sqlite3_prepare_v2(db, sql, -1, &stmt, nullptr) != SQLITE_OK)
     return false;
 
-  sqlite3_bind_text(stmt, 1, serviceKey.c_str(), -1, SQLITE_TRANSIENT);
-  sqlite3_bind_text(stmt, 2, descKey.c_str(), -1, SQLITE_TRANSIENT);
-  if (parentId > 0) {
-    sqlite3_bind_int(stmt, 3, parentId);
-  } else {
-    sqlite3_bind_null(stmt, 3);
-  }
-  sqlite3_bind_int(stmt, 4, firmwareId);
-  sqlite3_bind_int(stmt, 5, id);
+  sqlite3_bind_int(stmt, 1, serviceId);
+  sqlite3_bind_int(stmt, 2, firmwareId);
 
   int rc = sqlite3_step(stmt);
   sqlite3_finalize(stmt);
@@ -395,20 +453,17 @@ bool RecloserManager::deleteService(int id) {
 
 std::vector<ServiceRecord> RecloserManager::getAllServices() {
   std::vector<ServiceRecord> records;
-  const char *sql = "SELECT id, service_key, description_key, "
-                    "IFNULL(parent_id, 0), firmware_id FROM Services;";
+  const char *sql = "SELECT id, description_key, "
+                    "IFNULL(parent_id, 0) FROM Services;";
   sqlite3_stmt *stmt;
 
   if (sqlite3_prepare_v2(db, sql, -1, &stmt, nullptr) == SQLITE_OK) {
     while (sqlite3_step(stmt) == SQLITE_ROW) {
       ServiceRecord rec;
       rec.id = sqlite3_column_int(stmt, 0);
-      rec.service_key =
-          reinterpret_cast<const char *>(sqlite3_column_text(stmt, 1));
       rec.description_key =
-          reinterpret_cast<const char *>(sqlite3_column_text(stmt, 2));
-      rec.parent_id = sqlite3_column_int(stmt, 3);
-      rec.firmware_id = sqlite3_column_int(stmt, 4);
+          reinterpret_cast<const char *>(sqlite3_column_text(stmt, 1));
+      rec.parent_id = sqlite3_column_int(stmt, 2);
       records.push_back(rec);
     }
   }
@@ -421,11 +476,15 @@ RecloserManager::getServicesByParentAndFirmware(int parentId, int firmwareId) {
   std::vector<ServiceRecord> records;
   const char *sql;
   if (parentId > 0) {
-    sql = "SELECT id, service_key, description_key, parent_id, firmware_id "
-          "FROM Services WHERE parent_id = ? AND firmware_id = ?;";
+    sql = "SELECT s.id, s.description_key, s.parent_id "
+          "FROM Services s "
+          "JOIN ServiceFirmware sf ON s.id = sf.service_id "
+          "WHERE s.parent_id = ? AND sf.firmware_id = ?;";
   } else {
-    sql = "SELECT id, service_key, description_key, parent_id, firmware_id "
-          "FROM Services WHERE parent_id IS NULL AND firmware_id = ?;";
+    sql = "SELECT s.id, s.description_key, s.parent_id "
+          "FROM Services s "
+          "JOIN ServiceFirmware sf ON s.id = sf.service_id "
+          "WHERE s.parent_id IS NULL AND sf.firmware_id = ?;";
   }
 
   sqlite3_stmt *stmt;
@@ -440,12 +499,9 @@ RecloserManager::getServicesByParentAndFirmware(int parentId, int firmwareId) {
     while (sqlite3_step(stmt) == SQLITE_ROW) {
       ServiceRecord rec;
       rec.id = sqlite3_column_int(stmt, 0);
-      rec.service_key =
-          reinterpret_cast<const char *>(sqlite3_column_text(stmt, 1));
       rec.description_key =
-          reinterpret_cast<const char *>(sqlite3_column_text(stmt, 2));
-      rec.parent_id = sqlite3_column_int(stmt, 3);
-      rec.firmware_id = sqlite3_column_int(stmt, 4);
+          reinterpret_cast<const char *>(sqlite3_column_text(stmt, 1));
+      rec.parent_id = sqlite3_column_int(stmt, 2);
       records.push_back(rec);
     }
   }
@@ -454,9 +510,8 @@ RecloserManager::getServicesByParentAndFirmware(int parentId, int firmwareId) {
 }
 
 std::optional<ServiceRecord> RecloserManager::getServiceById(int id) {
-  const char *sql =
-      "SELECT id, service_key, description_key, IFNULL(parent_id, "
-      "0), firmware_id FROM Services WHERE id = ?;";
+  const char *sql = "SELECT id, description_key, IFNULL(parent_id, "
+                    "0) FROM Services WHERE id = ?;";
   sqlite3_stmt *stmt;
   std::optional<ServiceRecord> result = std::nullopt;
 
@@ -465,12 +520,9 @@ std::optional<ServiceRecord> RecloserManager::getServiceById(int id) {
     if (sqlite3_step(stmt) == SQLITE_ROW) {
       ServiceRecord rec;
       rec.id = sqlite3_column_int(stmt, 0);
-      rec.service_key =
-          reinterpret_cast<const char *>(sqlite3_column_text(stmt, 1));
       rec.description_key =
-          reinterpret_cast<const char *>(sqlite3_column_text(stmt, 2));
-      rec.parent_id = sqlite3_column_int(stmt, 3);
-      rec.firmware_id = sqlite3_column_int(stmt, 4);
+          reinterpret_cast<const char *>(sqlite3_column_text(stmt, 1));
+      rec.parent_id = sqlite3_column_int(stmt, 2);
       result = rec;
     }
   }
@@ -478,31 +530,37 @@ std::optional<ServiceRecord> RecloserManager::getServiceById(int id) {
   return result;
 }
 
-bool RecloserManager::addFeature(const std::string &descKey, int serviceId) {
+int RecloserManager::addFeature(const std::string &descKey,
+                                int serviceFirmwareId) {
   const char *sql =
-      "INSERT INTO Features (description_key, service_id) VALUES (?, ?);";
+      "INSERT INTO Features (description_key, service_firmware_id) "
+      "VALUES (?, ?);";
   sqlite3_stmt *stmt;
   if (sqlite3_prepare_v2(db, sql, -1, &stmt, nullptr) != SQLITE_OK)
-    return false;
+    return 0;
 
   sqlite3_bind_text(stmt, 1, descKey.c_str(), -1, SQLITE_TRANSIENT);
-  sqlite3_bind_int(stmt, 2, serviceId);
+  sqlite3_bind_int(stmt, 2, serviceFirmwareId);
 
   int rc = sqlite3_step(stmt);
   sqlite3_finalize(stmt);
-  return rc == SQLITE_DONE;
+
+  if (rc == SQLITE_DONE) {
+    return static_cast<int>(sqlite3_last_insert_rowid(db));
+  }
+  return 0;
 }
 
 bool RecloserManager::updateFeature(int id, const std::string &descKey,
-                                    int serviceId) {
-  const char *sql =
-      "UPDATE Features SET description_key = ?, service_id = ? WHERE id = ?;";
+                                    int serviceFirmwareId) {
+  const char *sql = "UPDATE Features SET description_key = ?, "
+                    "service_firmware_id = ? WHERE id = ?;";
   sqlite3_stmt *stmt;
   if (sqlite3_prepare_v2(db, sql, -1, &stmt, nullptr) != SQLITE_OK)
     return false;
 
   sqlite3_bind_text(stmt, 1, descKey.c_str(), -1, SQLITE_TRANSIENT);
-  sqlite3_bind_int(stmt, 2, serviceId);
+  sqlite3_bind_int(stmt, 2, serviceFirmwareId);
   sqlite3_bind_int(stmt, 3, id);
 
   int rc = sqlite3_step(stmt);
@@ -523,20 +581,20 @@ bool RecloserManager::deleteFeature(int id) {
 }
 
 std::vector<FeatureRecord>
-RecloserManager::getFeaturesByService(int serviceId) {
+RecloserManager::getFeaturesByServiceFirmware(int serviceFirmwareId) {
   std::vector<FeatureRecord> records;
-  const char *sql = "SELECT id, description_key, service_id FROM Features "
-                    "WHERE service_id = ?;";
+  const char *sql = "SELECT id, description_key, service_firmware_id FROM "
+                    "Features WHERE service_firmware_id = ?;";
   sqlite3_stmt *stmt;
 
   if (sqlite3_prepare_v2(db, sql, -1, &stmt, nullptr) == SQLITE_OK) {
-    sqlite3_bind_int(stmt, 1, serviceId);
+    sqlite3_bind_int(stmt, 1, serviceFirmwareId);
     while (sqlite3_step(stmt) == SQLITE_ROW) {
       FeatureRecord rec;
       rec.id = sqlite3_column_int(stmt, 0);
       rec.description_key =
           reinterpret_cast<const char *>(sqlite3_column_text(stmt, 1));
-      rec.service_id = sqlite3_column_int(stmt, 2);
+      rec.service_firmware_id = sqlite3_column_int(stmt, 2);
       records.push_back(rec);
     }
   }
@@ -544,9 +602,48 @@ RecloserManager::getFeaturesByService(int serviceId) {
   return records;
 }
 
-std::optional<FeatureRecord> RecloserManager::getFeatureById(int id) {
+int RecloserManager::linkFeatureToComponent(int featureId,
+                                            const std::string &componentType) {
+  const char *sql = "INSERT INTO FeatureComponent (feature_id, component_id) "
+                    "SELECT ?, id FROM Component WHERE type = ?;";
+  sqlite3_stmt *stmt;
+  if (sqlite3_prepare_v2(db, sql, -1, &stmt, nullptr) != SQLITE_OK)
+    return 0;
+
+  sqlite3_bind_int(stmt, 1, featureId);
+  sqlite3_bind_text(stmt, 2, componentType.c_str(), -1, SQLITE_TRANSIENT);
+
+  int rc = sqlite3_step(stmt);
+  sqlite3_finalize(stmt);
+
+  if (rc == SQLITE_DONE) {
+    return static_cast<int>(sqlite3_last_insert_rowid(db));
+  }
+  return 0;
+}
+
+bool RecloserManager::addComponentLimit(int featureComponentId,
+                                        const std::string &limitKey,
+                                        const std::string &value) {
   const char *sql =
-      "SELECT id, description_key, service_id FROM Features WHERE id = ?;";
+      "INSERT INTO FeatureComponentLimits (feature_component_id, limit_id, "
+      "value) SELECT ?, id, ? FROM Limits WHERE key = ?;";
+  sqlite3_stmt *stmt;
+  if (sqlite3_prepare_v2(db, sql, -1, &stmt, nullptr) != SQLITE_OK)
+    return false;
+
+  sqlite3_bind_int(stmt, 1, featureComponentId);
+  sqlite3_bind_text(stmt, 2, value.c_str(), -1, SQLITE_TRANSIENT);
+  sqlite3_bind_text(stmt, 3, limitKey.c_str(), -1, SQLITE_TRANSIENT);
+
+  int rc = sqlite3_step(stmt);
+  sqlite3_finalize(stmt);
+  return rc == SQLITE_DONE;
+}
+
+std::optional<FeatureRecord> RecloserManager::getFeatureById(int id) {
+  const char *sql = "SELECT id, description_key, service_firmware_id FROM "
+                    "Features WHERE id = ?;";
   sqlite3_stmt *stmt;
   std::optional<FeatureRecord> result = std::nullopt;
 
@@ -557,7 +654,7 @@ std::optional<FeatureRecord> RecloserManager::getFeatureById(int id) {
       rec.id = sqlite3_column_int(stmt, 0);
       rec.description_key =
           reinterpret_cast<const char *>(sqlite3_column_text(stmt, 1));
-      rec.service_id = sqlite3_column_int(stmt, 2);
+      rec.service_firmware_id = sqlite3_column_int(stmt, 2);
       result = rec;
     }
   }
@@ -566,11 +663,12 @@ std::optional<FeatureRecord> RecloserManager::getFeatureById(int id) {
 }
 
 std::optional<RecloserManager::ServiceLayoutRecord>
-RecloserManager::getScreenLayout(int serviceId) {
-  // Get service details
-  const char *serviceSql =
-      "SELECT id, service_key, description_key FROM Services "
-      "WHERE id = ?;";
+RecloserManager::getScreenLayout(int serviceFirmwareId) {
+  // Get service details via ServiceFirmware join
+  const char *serviceSql = "SELECT s.id, s.description_key "
+                           "FROM Services s "
+                           "JOIN ServiceFirmware sf ON s.id = sf.service_id "
+                           "WHERE sf.id = ?;";
 
   sqlite3_stmt *serviceStmt;
   ServiceLayoutRecord layout;
@@ -578,13 +676,11 @@ RecloserManager::getScreenLayout(int serviceId) {
 
   if (sqlite3_prepare_v2(db, serviceSql, -1, &serviceStmt, nullptr) ==
       SQLITE_OK) {
-    sqlite3_bind_int(serviceStmt, 1, serviceId);
+    sqlite3_bind_int(serviceStmt, 1, serviceFirmwareId);
     if (sqlite3_step(serviceStmt) == SQLITE_ROW) {
       layout.service_id = sqlite3_column_int(serviceStmt, 0);
-      layout.service_key =
-          reinterpret_cast<const char *>(sqlite3_column_text(serviceStmt, 1));
       layout.description_key =
-          reinterpret_cast<const char *>(sqlite3_column_text(serviceStmt, 2));
+          reinterpret_cast<const char *>(sqlite3_column_text(serviceStmt, 1));
       found = true;
     }
   }
@@ -595,21 +691,21 @@ RecloserManager::getScreenLayout(int serviceId) {
 
   layout.translations = getTranslationsForKey(layout.description_key);
 
-  // Get features for this service
+  // Get features for this service-firmware combination
   const char *layoutSql =
-      "SELECT f.id, f.description_key, c.type, c.key, fl.id "
+      "SELECT f.id, f.description_key, c.type, fc.id "
       "FROM Features f "
-      "LEFT JOIN FeatureLayout fl ON f.id = fl.feature_id "
-      "LEFT JOIN Component c ON fl.component_id = c.id "
-      "WHERE f.service_id = ?;";
+      "LEFT JOIN FeatureComponent fc ON f.id = fc.feature_id "
+      "LEFT JOIN Component c ON fc.component_id = c.id "
+      "WHERE f.service_firmware_id = ?;";
 
   sqlite3_stmt *layoutStmt;
   if (sqlite3_prepare_v2(db, layoutSql, -1, &layoutStmt, nullptr) ==
       SQLITE_OK) {
-    sqlite3_bind_int(layoutStmt, 1, serviceId);
+    sqlite3_bind_int(layoutStmt, 1, serviceFirmwareId);
 
     while (sqlite3_step(layoutStmt) == SQLITE_ROW) {
-      FeatureLayoutRecord rec;
+      FeatureComponentRecord rec;
       rec.feature_id = sqlite3_column_int(layoutStmt, 0);
       rec.feature_key =
           reinterpret_cast<const char *>(sqlite3_column_text(layoutStmt, 1));
@@ -619,22 +715,21 @@ RecloserManager::getScreenLayout(int serviceId) {
       if (sqlite3_column_type(layoutStmt, 2) != SQLITE_NULL) {
         rec.component_type =
             reinterpret_cast<const char *>(sqlite3_column_text(layoutStmt, 2));
-        rec.component_key =
-            reinterpret_cast<const char *>(sqlite3_column_text(layoutStmt, 3));
-        int layoutId = sqlite3_column_int(layoutStmt, 4);
 
-        // Get limits for this layout
-        const char *limitSql = "SELECT l.key, fll.value "
-                               "FROM FeatureLayoutLimits fll "
-                               "JOIN Limits l ON fll.limit_id = l.id "
-                               "WHERE fll.layout_id = ?;";
+        int fcId = sqlite3_column_int(layoutStmt, 3);
+
+        // Get limits for this component
+        const char *limitSql = "SELECT l.key, fcl.value "
+                               "FROM FeatureComponentLimits fcl "
+                               "JOIN Limits l ON fcl.limit_id = l.id "
+                               "WHERE fcl.feature_component_id = ?;";
 
         sqlite3_stmt *limitStmt;
         if (sqlite3_prepare_v2(db, limitSql, -1, &limitStmt, nullptr) ==
             SQLITE_OK) {
-          sqlite3_bind_int(limitStmt, 1, layoutId);
+          sqlite3_bind_int(limitStmt, 1, fcId);
           while (sqlite3_step(limitStmt) == SQLITE_ROW) {
-            LayoutLimitRecord lim;
+            ComponentLimitRecord lim;
             lim.key = reinterpret_cast<const char *>(
                 sqlite3_column_text(limitStmt, 0));
             lim.value = reinterpret_cast<const char *>(
@@ -649,17 +744,32 @@ RecloserManager::getScreenLayout(int serviceId) {
   }
   sqlite3_finalize(layoutStmt);
 
+  // Get firmwareId from sfId to use for children
+  int firmwareId = 0;
+  const char *fwSql = "SELECT firmware_id FROM ServiceFirmware WHERE id = ?;";
+  sqlite3_stmt *fwStmt;
+  if (sqlite3_prepare_v2(db, fwSql, -1, &fwStmt, nullptr) == SQLITE_OK) {
+    sqlite3_bind_int(fwStmt, 1, serviceFirmwareId);
+    if (sqlite3_step(fwStmt) == SQLITE_ROW) {
+      firmwareId = sqlite3_column_int(fwStmt, 0);
+    }
+  }
+  sqlite3_finalize(fwStmt);
+
   // Recursively get children layouts
   const char *childrenSql = "SELECT id FROM Services WHERE parent_id = ?;";
   sqlite3_stmt *childrenStmt;
   if (sqlite3_prepare_v2(db, childrenSql, -1, &childrenStmt, nullptr) ==
       SQLITE_OK) {
-    sqlite3_bind_int(childrenStmt, 1, serviceId);
+    sqlite3_bind_int(childrenStmt, 1, layout.service_id);
     while (sqlite3_step(childrenStmt) == SQLITE_ROW) {
-      int childId = sqlite3_column_int(childrenStmt, 0);
-      auto childLayout = getScreenLayout(childId);
-      if (childLayout) {
-        layout.children.push_back(*childLayout);
+      int childServiceId = sqlite3_column_int(childrenStmt, 0);
+      int childSfId = getServiceFirmwareId(childServiceId, firmwareId);
+      if (childSfId > 0) {
+        auto childLayout = getScreenLayout(childSfId);
+        if (childLayout) {
+          layout.children.push_back(*childLayout);
+        }
       }
     }
   }
@@ -669,34 +779,19 @@ RecloserManager::getScreenLayout(int serviceId) {
 }
 
 bool RecloserManager::populateSampleLayoutData() {
-  // 1. Attach layout for Overcurrent Protection (feature_id=1) -> Integer
-  // (component_id=4)
-  sqlite3_exec(db,
-               "INSERT OR IGNORE INTO FeatureLayout (feature_id, component_id) "
-               "VALUES (1, 4);",
-               nullptr, nullptr, nullptr);
+  // Overcurrent Protection (feature_id=1) -> Integer
+  int fc1 = linkFeatureToComponent(1, "Integer");
+  if (fc1 > 0) {
+    addComponentLimit(fc1, "MIN_VALUE", "0");
+    addComponentLimit(fc1, "MAX_VALUE", "5000");
+    addComponentLimit(fc1, "STEP", "1");
+  }
 
-  // 2. Attach limits for Overcurrent Protection
-  // MIN_VALUE=1, MAX_VALUE=2, STEP=4
-  sqlite3_exec(
-      db,
-      "INSERT OR IGNORE INTO FeatureLayoutLimits (layout_id, limit_id, value) "
-      "VALUES (1, 1, '0'), (1, 2, '5000'), (1, 4, '1');",
-      nullptr, nullptr, nullptr);
-
-  // 3. Attach layout for Reclose Count Limit (feature_id=2) -> ComboBox
-  // (component_id=1)
-  sqlite3_exec(db,
-               "INSERT OR IGNORE INTO FeatureLayout (feature_id, component_id) "
-               "VALUES (2, 1);",
-               nullptr, nullptr, nullptr);
-
-  // 4. Attach limits for Reclose Count Limit
-  // MAX_CHAR=5
-  sqlite3_exec(db,
-               "INSERT OR IGNORE INTO FeatureLayoutLimits (layout_id, "
-               "limit_id, value) VALUES (2, 5, '2');",
-               nullptr, nullptr, nullptr);
+  // Reclose Count Limit (feature_id=2) -> ComboBox
+  int fc2 = linkFeatureToComponent(2, "ComboBox");
+  if (fc2 > 0) {
+    addComponentLimit(fc2, "MAX_CHAR", "2");
+  }
 
   return true;
 }

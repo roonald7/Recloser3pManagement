@@ -6,7 +6,6 @@
 #include <thread>
 #include <vector>
 
-
 void RunServer(RecloserManager *manager, const std::string &server_address) {
   recloser::RecloserServiceImpl service(manager);
 
@@ -36,162 +35,126 @@ int main() {
 
   std::cout << "Database initialized at: data/management.db" << std::endl;
 
-  // Setup Languages
-  manager.addLanguage("enUs", "English");
-  manager.addLanguage("ptBr", "Português");
-  manager.addLanguage("esEs", "Español");
+  if (manager.getAllReclosers().empty()) {
+    std::cout << "Database is empty. Populating initial data..." << std::endl;
 
-  // Setup Description Keys
-  manager.addDescriptionKey("VOLTAGE");
-  manager.addDescriptionKey("CURRENT");
-  manager.addDescriptionKey("FREQUENCY");
-  manager.addDescriptionKey("DEVICE_NAME");
-  manager.addDescriptionKey("STATUS_OPEN");
-  manager.addDescriptionKey("STATUS_CLOSED");
+    // Setup Languages
+    manager.addLanguage("enUs", "English");
+    manager.addLanguage("ptBr", "Português");
 
-  // English Translations
-  manager.addTranslation("VOLTAGE", "enUs", "Voltage");
-  manager.addTranslation("CURRENT", "enUs", "Current");
-  manager.addTranslation("FREQUENCY", "enUs", "Frequency");
-  manager.addTranslation("DEVICE_NAME", "enUs", "Device Name");
-  manager.addTranslation("STATUS_OPEN", "enUs", "Open");
-  manager.addTranslation("STATUS_CLOSED", "enUs", "Closed");
+    // Setup Description Keys and Translations
+    manager.addKeyWithTranslations(
+        "DATE_TIME", {{"enUs", "Date and Time"}, {"ptBr", "Data e Hora"}});
+    manager.addKeyWithTranslations("DATE",
+                                   {{"enUs", "Date"}, {"ptBr", "Data"}});
+    manager.addKeyWithTranslations("TIME",
+                                   {{"enUs", "Time"}, {"ptBr", "Hora"}});
+    manager.addKeyWithTranslations("GMT", {{"enUs", "GMT"}, {"ptBr", "GMT"}});
 
-  // Portuguese Translations
-  manager.addTranslation("VOLTAGE", "ptBr", "Tensão");
-  manager.addTranslation("CURRENT", "ptBr", "Corrente");
-  manager.addTranslation("FREQUENCY", "ptBr", "Frequência");
-  manager.addTranslation("DEVICE_NAME", "ptBr", "Nome do Dispositivo");
-  manager.addTranslation("STATUS_OPEN", "ptBr", "Aberto");
-  manager.addTranslation("STATUS_CLOSED", "ptBr", "Fechado");
+    manager.addKeyWithTranslations("MULTIPLICATION_CONSTANTS",
+                                   {{"enUs", "Multiplication Constants"},
+                                    {"ptBr", "Constantes de Multiplicação"}});
+    manager.addKeyWithTranslations(
+        "NUM_TC", {{"enUs", "TC numerator"}, {"ptBr", "Numerador do TC"}});
+    manager.addKeyWithTranslations(
+        "DEN_TC", {{"enUs", "TC denominator"}, {"ptBr", "Denominador do TC"}});
+    manager.addKeyWithTranslations(
+        "NUM_TP", {{"enUs", "TP numerator"}, {"ptBr", "Numerador do TP"}});
+    manager.addKeyWithTranslations(
+        "DEN_TP", {{"enUs", "TP denominator"}, {"ptBr", "Denominador do TP"}});
 
-  // Setup Description Keys for Reclosers
-  manager.addDescriptionKey("RECLOSER_MODEL_1");
-  manager.addDescriptionKey("RECLOSER_MODEL_2");
+    // Setup Description Keys for Reclosers
+    manager.addKeyWithTranslations(
+        "ZEUS_NG_3P4W", {{"enUs", "Zeus NG 3P/4W"}, {"ptBr", "Zeus NG 3P/4W"}});
+    manager.addKeyWithTranslations(
+        "ZEUS_NG_1P2W", {{"enUs", "Zeus NG 1P/2W"}, {"ptBr", "Zeus NG 1P/2W"}});
+    manager.addKeyWithTranslations("ZEUS_NG",
+                                   {{"enUs", "Zeus NG"}, {"ptBr", "Zeus NG"}});
 
-  // Translations for Recloser Keys
-  manager.addTranslation("RECLOSER_MODEL_1", "enUs",
-                         "Primary Distribution Recloser");
-  manager.addTranslation("RECLOSER_MODEL_1", "ptBr",
-                         "Religador de Distribuição Primária");
-  manager.addTranslation("RECLOSER_MODEL_2", "enUs", "Smart Grid Recloser");
-  manager.addTranslation("RECLOSER_MODEL_2", "ptBr",
-                         "Religador de Rede Inteligente");
+    // Add Reclosers
+    manager.addRecloser("ZEUS_NG_3P4W");
+    manager.addRecloser("ZEUS_NG_1P2W");
 
-  // Add Reclosers
-  manager.addRecloser("RECLOSER_MODEL_1", "Model 1");
-  manager.addRecloser("RECLOSER_MODEL_2", "Model 2");
+    // Add Firmware Versions
+    // For Model 1 (ID 1)
+    manager.addFirmwareVersion("v1.0.0", 1);
+    manager.addFirmwareVersion("v2.0.0", 1);
+    // For Model 2 (ID 2)
+    manager.addFirmwareVersion("v1.1.0", 2);
+    manager.addFirmwareVersion("v2.1.0", 2);
 
-  // Add Firmware Versions
-  // For Model 1 (ID 1)
-  manager.addFirmwareVersion("v1.0.0", 1);
-  manager.addFirmwareVersion("v2.1.2", 1);
-  // For Model 2 (ID 2)
-  manager.addFirmwareVersion("v1.1.0", 2);
-  manager.addFirmwareVersion("v2.0.5", 2);
+    // Setup Services and Sections (Hierarchy)
 
-  std::cout << "\n--- Translations Preview ---" << std::endl;
-  printf("%-20s | %-30s | %-30s\n", "Key", "English", "Portuguese");
-  std::cout << "---------------------------------------------------------------"
-               "------------------------"
-            << std::endl;
+    // 1. Setup Shared Services (Reusable across firmwares)
+    int sDateTime = manager.addService("DATE_TIME", 0);
+    int sMultiplicationConstants =
+        manager.addService("MULTIPLICATION_CONSTANTS", 0);
 
-  std::vector<std::string> keys = {"VOLTAGE", "CURRENT", "RECLOSER_MODEL_1",
-                                   "RECLOSER_MODEL_2"};
-  for (const auto &key : keys) {
-    printf("%-20s | %-30s | %-30s\n", key.c_str(),
-           manager.getTranslation(key, "enUs").c_str(),
-           manager.getTranslation(key, "ptBr").c_str());
-  }
+    // 2. Link Services to Firmware 1 (v1.0.0)
+    int sfDateTimeV1 = manager.linkServiceToFirmware(sDateTime, 1);
+    int sfMultiplicationConstantsV1 =
+        manager.linkServiceToFirmware(sMultiplicationConstants, 1);
 
-  // Setup Services and Sections (Hierarchy)
-  manager.addDescriptionKey("SERV_PROTECTION");
-  manager.addDescriptionKey("SERV_MEASUREMENT");
-  manager.addDescriptionKey("SERV_PROT_PARAMS");
-  manager.addDescriptionKey("SERV_MEAS_LOGS");
+    // 3. Link Same Services to Firmware 2 (v2.1.2)
+    int sfDateTimeV2 = manager.linkServiceToFirmware(sDateTime, 2);
+    int sfMultiplicationConstantsV2 =
+        manager.linkServiceToFirmware(sMultiplicationConstants, 2);
 
-  manager.addTranslation("SERV_PROTECTION", "enUs", "Protection Services");
-  manager.addTranslation("SERV_PROTECTION", "ptBr", "Serviços de Proteção");
-  manager.addTranslation("SERV_MEASUREMENT", "enUs", "Measurement Services");
-  manager.addTranslation("SERV_MEASUREMENT", "ptBr", "Serviços de Medição");
+    // Add Features to Firmware v1 (Link to sfDateTimeV1)
+    int fDateV1 = manager.addFeature("DATE", sfDateTimeV1);
+    int fTimeV1 = manager.addFeature("TIME", sfDateTimeV1);
+    manager.linkFeatureToComponent(fDateV1, "Date");
+    manager.linkFeatureToComponent(fTimeV1, "Time");
 
-  manager.addTranslation("SERV_PROT_PARAMS", "enUs", "Protection Parameters");
-  manager.addTranslation("SERV_PROT_PARAMS", "ptBr", "Parâmetros de Proteção");
-  manager.addTranslation("SERV_MEAS_LOGS", "enUs", "Measurement Logs");
-  manager.addTranslation("SERV_MEAS_LOGS", "ptBr", "Logs de Medição");
+    // Add Features to Firmware v1 (Link to sfMultiplicationConstantsV1)
+    int fNumTcV1 = manager.addFeature("NUM_TC", sfMultiplicationConstantsV1);
+    int fDenTcV1 = manager.addFeature("DEN_TC", sfMultiplicationConstantsV1);
+    int fNumTpV1 = manager.addFeature("NUM_TP", sfMultiplicationConstantsV1);
+    int fDenTpV1 = manager.addFeature("DEN_TP", sfMultiplicationConstantsV1);
 
-  // 1. Setup Services for Firmware 1 (v1.0.0)
-  manager.addService("SEC_PROT_V1", "SERV_PROTECTION", 1, 0);     // ID 1
-  manager.addService("PROT_PARAMS_V1", "SERV_PROT_PARAMS", 1, 1); // ID 2
+    int fcNmTcV1 = manager.linkFeatureToComponent(fNumTcV1, "Integer");
+    int fcDnTcV1 = manager.linkFeatureToComponent(fDenTcV1, "Integer");
+    int fcNmTpV1 = manager.linkFeatureToComponent(fNumTpV1, "Integer");
+    int fcDnTpV1 = manager.linkFeatureToComponent(fDenTpV1, "Integer");
 
-  // 2. Setup Services for Firmware 2 (v2.1.2) - Duplicating + adding
-  manager.addService("SEC_PROT_V2", "SERV_PROTECTION", 2, 0);     // ID 3
-  manager.addService("PROT_PARAMS_V2", "SERV_PROT_PARAMS", 2, 3); // ID 4
+    manager.addComponentLimit(fcNmTcV1, "MIN_VALUE", "1");
+    manager.addComponentLimit(fcNmTcV1, "MAX_VALUE", "10000");
+    manager.addComponentLimit(fcDnTcV1, "MIN_VALUE", "1");
+    manager.addComponentLimit(fcDnTcV1, "MAX_VALUE", "10000");
+    manager.addComponentLimit(fcNmTpV1, "MIN_VALUE", "1");
+    manager.addComponentLimit(fcNmTpV1, "MAX_VALUE", "10000");
+    manager.addComponentLimit(fcDnTpV1, "MIN_VALUE", "1");
+    manager.addComponentLimit(fcDnTpV1, "MAX_VALUE", "10000");
+    manager.addComponentLimit(fcNmTcV1, "DEFAULT_VALUE", "5");
+    manager.addComponentLimit(fcNmTcV1, "STEP", "5");
 
-  // Setup Feature Description Keys
-  manager.addDescriptionKey("FEAT_OVERCURRENT");
-  manager.addDescriptionKey("FEAT_RECLOSE_LIMIT");
-  manager.addDescriptionKey("FEAT_OSCILLOGRAPHY");
+    // Add Features to Firmware v2 (Link to sfParamsV2)
+    int fDateV2 = manager.addFeature("DATE", sfDateTimeV2);
+    int fTimeV2 = manager.addFeature("TIME", sfDateTimeV2);
+    int fGmtV2 = manager.addFeature("GMT", sfDateTimeV2); // Only v2 has gmt !
 
-  manager.addTranslation("FEAT_OVERCURRENT", "enUs", "Overcurrent Protection");
-  manager.addTranslation("FEAT_OVERCURRENT", "ptBr",
-                         "Proteção de Sobrecorrente");
-  manager.addTranslation("FEAT_RECLOSE_LIMIT", "enUs", "Reclose Count Limit");
-  manager.addTranslation("FEAT_RECLOSE_LIMIT", "ptBr",
-                         "Limite de Contagem de Religamento");
-  manager.addTranslation("FEAT_OSCILLOGRAPHY", "enUs",
-                         "Advanced Oscillography");
-  manager.addTranslation("FEAT_OSCILLOGRAPHY", "ptBr", "Oscilografia Avançada");
+    manager.linkFeatureToComponent(fDateV2, "Date");
+    manager.linkFeatureToComponent(fTimeV2, "Time");
+    manager.linkFeatureToComponent(fGmtV2, "Spinner");
 
-  // Add Features for V1 (Service ID 2)
-  manager.addFeature("FEAT_OVERCURRENT", 2);
-  manager.addFeature("FEAT_RECLOSE_LIMIT", 2);
+    int fNumTcV2 = manager.addFeature("NUM_TC", sfMultiplicationConstantsV2);
+    int fDenTcV2 = manager.addFeature("DEN_TC", sfMultiplicationConstantsV2);
+    int fNumTpV2 = manager.addFeature("NUM_TP", sfMultiplicationConstantsV2);
+    int fDenTpV2 = manager.addFeature("DEN_TP", sfMultiplicationConstantsV2);
 
-  // Add Features for V2 (Service ID 4) - Same as V1 + Oscillography
-  manager.addFeature("FEAT_OVERCURRENT", 4);
-  manager.addFeature("FEAT_RECLOSE_LIMIT", 4);
-  manager.addFeature("FEAT_OSCILLOGRAPHY", 4); // The additional feature for V2
+    int fcNmTcV2 = manager.linkFeatureToComponent(fNumTcV2, "Integer");
+    int fcDnTcV2 = manager.linkFeatureToComponent(fDenTcV2, "Integer");
+    int fcNmTpV2 = manager.linkFeatureToComponent(fNumTpV2, "Integer");
+    int fcDnTpV2 = manager.linkFeatureToComponent(fDenTpV2, "Integer");
 
-  // Populate Sample Layout Data
-  manager.populateSampleLayoutData();
-
-  std::cout << "\n--- Full Recloser Hierarchy (Model -> Firmware -> Service "
-               "Tree -> Features) ---"
-            << std::endl;
-  auto allReclosers = manager.getAllReclosers();
-  for (const auto &r : allReclosers) {
-    std::cout << "\n[Recloser] " << r.model << " ("
-              << manager.getTranslation(r.description_key, "ptBr") << ")"
-              << std::endl;
-
-    auto firmwares = manager.getFirmwareVersionsForRecloser(r.id);
-    for (const auto &f : firmwares) {
-      std::cout << "  └─ [Firmware] " << f.version << std::endl;
-
-      // Get top-level services for this firmware
-      auto topServices = manager.getServicesByParentAndFirmware(0, f.id);
-      for (const auto &parent : topServices) {
-        std::cout << "    ├─ [Section] "
-                  << manager.getTranslation(parent.description_key, "ptBr")
-                  << std::endl;
-
-        // Get children services
-        auto children = manager.getServicesByParentAndFirmware(parent.id, f.id);
-        for (const auto &child : children) {
-          std::cout << "    │  └─ [Service] "
-                    << manager.getTranslation(child.description_key, "ptBr")
-                    << std::endl;
-
-          // Show features for this service
-          auto feats = manager.getFeaturesByService(child.id);
-          for (const auto &feat : feats) {
-            std::cout << "    │     * [Feature] "
-                      << manager.getTranslation(feat.description_key, "ptBr")
-                      << std::endl;
-          }
-        }
-      }
-    }
+    manager.addComponentLimit(fcNmTcV2, "MIN_VALUE", "1");
+    manager.addComponentLimit(fcNmTcV2, "MAX_VALUE", "20000");
+    manager.addComponentLimit(fcDnTcV2, "MIN_VALUE", "1");
+    manager.addComponentLimit(fcDnTcV2, "MAX_VALUE", "20000");
+    manager.addComponentLimit(fcNmTpV2, "MIN_VALUE", "1");
+    manager.addComponentLimit(fcNmTpV2, "MAX_VALUE", "20000");
+    manager.addComponentLimit(fcDnTpV2, "MIN_VALUE", "1");
+    manager.addComponentLimit(fcDnTpV2, "MAX_VALUE", "10000");
   }
 
   // Start gRPC server in a separate thread

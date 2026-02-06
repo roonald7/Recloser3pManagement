@@ -36,8 +36,7 @@ message DeleteRequest { int32 id = 1; }
 
 message RecloserRecord {
   int32 id = 1;
-  string model = 2;
-  string description_key = 3;
+  string description_key = 2;
 }
 
 message FirmwareRecord {
@@ -48,10 +47,9 @@ message FirmwareRecord {
 
 message ServiceRecord {
   int32 id = 1;
-  string service_key = 2;
-  string description_key = 3;
-  int32 parent_id = 4;
-  int32 firmware_id = 5;
+  string description_key = 2;
+  int32 parent_id = 3;
+  int32 firmware_id = 4;
 }
 
 message FeatureRecord {
@@ -70,7 +68,7 @@ message FirmwareInventory {
 
 message RecloserInventory {
   int32 id = 1;
-  string model = 2;
+  string description_key = 2;
   repeated Translation translations = 3;
   repeated FirmwareInventory firmwares = 4;
 }
@@ -87,7 +85,7 @@ message Feature {
 
 message ServiceNode {
   int32 id = 1;
-  string service_key = 2;
+  string description_key = 2;
   repeated Translation translations = 3;
   repeated Feature features = 4;
   repeated ServiceNode children = 5;
@@ -110,7 +108,7 @@ enum DifferenceType {
 }
 
 message ServiceDifference {
-  string service_key = 1;
+  string description_key = 1;
   string display_name = 2;
   DifferenceType difference_type = 3;
   repeated FeatureDifference feature_differences = 4;
@@ -132,7 +130,7 @@ message CompareServiceTreesResponse {
 
 message ScreenLayoutRequest { int32 service_id = 1; }
 
-message LayoutLimit {
+message ComponentLimit {
   string key = 1;   // e.g., "MIN_VALUE"
   string value = 2; // e.g., "0"
 }
@@ -142,20 +140,19 @@ message Translation {
   string value = 2;
 }
 
-message FeatureLayoutDetail {
+message FeatureComponentDetail {
   int32 feature_id = 1;
   string feature_key = 2;
   repeated Translation translations = 3;
   string component_type = 4;
-  string component_key = 5;
-  repeated LayoutLimit limits = 6;
+  repeated ComponentLimit limits = 5;
 }
 
 message ServiceLayout {
   int32 service_id = 1;
-  string service_key = 2;
+  string description_key = 2;
   repeated Translation translations = 3;
-  repeated FeatureLayoutDetail features = 4;
+  repeated FeatureComponentDetail features = 4;
   repeated ServiceLayout children = 5;
 }
 

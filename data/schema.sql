@@ -30,8 +30,7 @@ CREATE TABLE IF NOT EXISTS Translations (
 -- Reclosers table
 CREATE TABLE IF NOT EXISTS Reclosers (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
-    description_key TEXT NOT NULL,
-    model TEXT NOT NULL,
+    description_key TEXT UNIQUE NOT NULL,
     FOREIGN KEY (description_key) REFERENCES Descriptions(key)
 );
 
@@ -46,29 +45,35 @@ CREATE TABLE IF NOT EXISTS FirmwareVersions (
 -- Services table
 CREATE TABLE IF NOT EXISTS Services (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
-    service_key TEXT UNIQUE NOT NULL,
-    description_key TEXT NOT NULL,
+    description_key TEXT UNIQUE NOT NULL,
     parent_id INTEGER,
-    firmware_id INTEGER NOT NULL,
     FOREIGN KEY (description_key) REFERENCES Descriptions(key),
-    FOREIGN KEY (parent_id) REFERENCES Services(id) ON DELETE CASCADE,
-    FOREIGN KEY (firmware_id) REFERENCES FirmwareVersions(id) ON DELETE CASCADE
+    FOREIGN KEY (parent_id) REFERENCES Services(id) ON DELETE CASCADE
+);
+
+-- ServiceFirmware mapping
+CREATE TABLE IF NOT EXISTS ServiceFirmware (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    service_id INTEGER NOT NULL,
+    firmware_id INTEGER NOT NULL,
+    FOREIGN KEY (service_id) REFERENCES Services(id) ON DELETE CASCADE,
+    FOREIGN KEY (firmware_id) REFERENCES FirmwareVersions(id) ON DELETE CASCADE,
+    UNIQUE(service_id, firmware_id)
 );
 
 -- Features table
 CREATE TABLE IF NOT EXISTS Features (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     description_key TEXT NOT NULL,
-    service_id INTEGER NOT NULL,
+    service_firmware_id INTEGER NOT NULL,
     FOREIGN KEY (description_key) REFERENCES Descriptions(key),
-    FOREIGN KEY (service_id) REFERENCES Services(id) ON DELETE CASCADE
+    FOREIGN KEY (service_firmware_id) REFERENCES ServiceFirmware(id) ON DELETE CASCADE
 );
 
 -- Component table
 CREATE TABLE IF NOT EXISTS Component (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
-    type TEXT NOT NULL,
-    key TEXT UNIQUE NOT NULL
+    type TEXT UNIQUE NOT NULL
 );
 
 -- Limits table
@@ -77,8 +82,8 @@ CREATE TABLE IF NOT EXISTS Limits (
     key TEXT UNIQUE NOT NULL
 );
 
--- Feature Layout mapping
-CREATE TABLE IF NOT EXISTS FeatureLayout (
+-- Feature Component mapping (Renamed from FeatureLayout)
+CREATE TABLE IF NOT EXISTS FeatureComponent (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     feature_id INTEGER NOT NULL,
     component_id INTEGER NOT NULL,
@@ -86,12 +91,12 @@ CREATE TABLE IF NOT EXISTS FeatureLayout (
     FOREIGN KEY (component_id) REFERENCES Component(id) ON DELETE CASCADE
 );
 
--- Specific limits for a layout
-CREATE TABLE IF NOT EXISTS FeatureLayoutLimits (
+-- Specific limits for a component (Renamed from FeatureLayoutLimits)
+CREATE TABLE IF NOT EXISTS FeatureComponentLimits (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
-    layout_id INTEGER NOT NULL,
+    feature_component_id INTEGER NOT NULL,
     limit_id INTEGER NOT NULL,
     value TEXT NOT NULL,
-    FOREIGN KEY (layout_id) REFERENCES FeatureLayout(id) ON DELETE CASCADE,
+    FOREIGN KEY (feature_component_id) REFERENCES FeatureComponent(id) ON DELETE CASCADE,
     FOREIGN KEY (limit_id) REFERENCES Limits(id) ON DELETE CASCADE
 );

@@ -11,7 +11,7 @@ namespace recloser {
 
 // Helper structure for comparison
 struct ServiceTreeNode {
-  std::string service_key;
+  std::string description_key;
   std::string display_name;
   std::set<std::string> features;
   std::map<std::string, ServiceTreeNode> children;

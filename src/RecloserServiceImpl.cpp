@@ -23,8 +23,9 @@ RecloserServiceImpl::GetServiceTree(grpc::ServerContext *context,
 
   for (const auto &service : topLevelServices) {
     ServiceNode *node = response->add_top_level_services();
-    node->set_id(service.id);
-    node->set_service_key(service.service_key);
+    int sfId = manager_->getServiceFirmwareId(service.id, firmwareId);
+    node->set_id(sfId);
+    node->set_description_key(service.description_key);
 
     auto translations =
         manager_->getTranslationsForKey(service.description_key);
@@ -34,19 +35,21 @@ RecloserServiceImpl::GetServiceTree(grpc::ServerContext *context,
       trans->set_value(t.value);
     }
 
-    // Get features for this service
-    auto features = manager_->getFeaturesByService(service.id);
-    for (const auto &feat : features) {
-      Feature *feature = node->add_features();
-      feature->set_id(feat.id);
-      feature->set_feature_key(feat.description_key);
+    // Get features for this service-firmware combination
+    if (sfId > 0) {
+      auto features = manager_->getFeaturesByServiceFirmware(sfId);
+      for (const auto &feat : features) {
+        Feature *feature = node->add_features();
+        feature->set_id(feat.id);
+        feature->set_feature_key(feat.description_key);
 
-      auto fTranslations =
-          manager_->getTranslationsForKey(feat.description_key);
-      for (const auto &t : fTranslations) {
-        auto *trans = feature->add_translations();
-        trans->set_language_code(t.language_code);
-        trans->set_value(t.value);
+        auto fTranslations =
+            manager_->getTranslationsForKey(feat.description_key);
+        for (const auto &t : fTranslations) {
+          auto *trans = feature->add_translations();
+          trans->set_language_code(t.language_code);
+          trans->set_value(t.value);
+        }
       }
     }
 
@@ -99,8 +102,9 @@ void RecloserServiceImpl::buildServiceNode(int parentId, int firmwareId,
 
   for (const auto &service : childServices) {
     ServiceNode *childNode = parentNode->add_children();
-    childNode->set_id(service.id);
-    childNode->set_service_key(service.service_key);
+    int sfId = manager_->getServiceFirmwareId(service.id, firmwareId);
+    childNode->set_id(sfId);
+    childNode->set_description_key(service.description_key);
 
     auto translations =
         manager_->getTranslationsForKey(service.description_key);
@@ -110,19 +114,21 @@ void RecloserServiceImpl::buildServiceNode(int parentId, int firmwareId,
       trans->set_value(t.value);
     }
 
-    // Get features for this child service
-    auto features = manager_->getFeaturesByService(service.id);
-    for (const auto &feat : features) {
-      Feature *feature = childNode->add_features();
-      feature->set_id(feat.id);
-      feature->set_feature_key(feat.description_key);
+    // Get features for this child service-firmware combination
+    if (sfId > 0) {
+      auto features = manager_->getFeaturesByServiceFirmware(sfId);
+      for (const auto &feat : features) {
+        Feature *feature = childNode->add_features();
+        feature->set_id(feat.id);
+        feature->set_feature_key(feat.description_key);
 
-      auto fTranslations =
-          manager_->getTranslationsForKey(feat.description_key);
-      for (const auto &t : fTranslations) {
-        auto *trans = feature->add_translations();
-        trans->set_language_code(t.language_code);
-        trans->set_value(t.value);
+        auto fTranslations =
+            manager_->getTranslationsForKey(feat.description_key);
+        for (const auto &t : fTranslations) {
+          auto *trans = feature->add_translations();
+          trans->set_language_code(t.language_code);
+          trans->set_value(t.value);
+        }
       }
     }
 
@@ -140,20 +146,23 @@ void RecloserServiceImpl::buildInternalTree(
 
   for (const auto &service : services) {
     ServiceTreeNode node;
-    node.service_key = service.service_key;
+    node.description_key = service.description_key;
     node.display_name =
         manager_->getTranslation(service.description_key, languageCode);
 
-    // Get features
-    auto features = manager_->getFeaturesByService(service.id);
-    for (const auto &feat : features) {
-      node.features.insert(feat.description_key);
+    // Get features for this service-firmware combination
+    int sfId = manager_->getServiceFirmwareId(service.id, firmwareId);
+    if (sfId > 0) {
+      auto features = manager_->getFeaturesByServiceFirmware(sfId);
+      for (const auto &feat : features) {
+        node.features.insert(feat.description_key);
+      }
     }
 
     // Recursively build children
     buildInternalTree(service.id, firmwareId, languageCode, node.children);
 
-    tree[service.service_key] = node;
+    tree[service.description_key] = node;
   }
 }
 
@@ -170,7 +179,7 @@ void RecloserServiceImpl::compareNodes(
     if (it2 == tree2.end()) {
       // Service removed in tree2
       ServiceDifference *diff = differences->Add();
-      diff->set_service_key(node1.service_key);
+      diff->set_description_key(node1.description_key);
       diff->set_display_name(node1.display_name);
       diff->set_difference_type(DifferenceType::REMOVED);
       removed++;
@@ -180,7 +189,7 @@ void RecloserServiceImpl::compareNodes(
       bool hasChanges = false;
 
       ServiceDifference *diff = differences->Add();
-      diff->set_service_key(node1.service_key);
+      diff->set_description_key(node1.description_key);
       diff->set_display_name(node1.display_name);
 
       // Compare features
@@ -224,7 +233,7 @@ void RecloserServiceImpl::compareNodes(
   for (const auto &[key, node2] : tree2) {
     if (tree1.find(key) == tree1.end()) {
       ServiceDifference *diff = differences->Add();
-      diff->set_service_key(node2.service_key);
+      diff->set_description_key(node2.description_key);
       diff->set_display_name(node2.display_name);
       diff->set_difference_type(DifferenceType::ADDED);
 
@@ -265,7 +274,7 @@ void RecloserServiceImpl::populateServiceLayout(
     const RecloserManager::ServiceLayoutRecord &rec, ServiceLayout *layout) {
 
   layout->set_service_id(rec.service_id);
-  layout->set_service_key(rec.service_key);
+  layout->set_description_key(rec.description_key);
 
   for (const auto &t : rec.translations) {
     auto *trans = layout->add_translations();
@@ -274,7 +283,7 @@ void RecloserServiceImpl::populateServiceLayout(
   }
 
   for (const auto &feat : rec.features) {
-    FeatureLayoutDetail *detail = layout->add_features();
+    FeatureComponentDetail *detail = layout->add_features();
     detail->set_feature_id(feat.feature_id);
     detail->set_feature_key(feat.feature_key);
 
@@ -285,10 +294,9 @@ void RecloserServiceImpl::populateServiceLayout(
     }
 
     detail->set_component_type(feat.component_type);
-    detail->set_component_key(feat.component_key);
 
     for (const auto &lim : feat.limits) {
-      LayoutLimit *limit = detail->add_limits();
+      ComponentLimit *limit = detail->add_limits();
       limit->set_key(lim.key);
       limit->set_value(lim.value);
     }
@@ -303,8 +311,7 @@ void RecloserServiceImpl::populateServiceLayout(
 grpc::Status RecloserServiceImpl::CreateRecloser(grpc::ServerContext *context,
                                                  const RecloserRecord *request,
                                                  GenericResponse *response) {
-  bool success =
-      manager_->addRecloser(request->description_key(), request->model());
+  bool success = manager_->addRecloser(request->description_key());
   response->set_success(success);
   response->set_message(success ? "Recloser created"
                                 : "Failed to create recloser");
@@ -314,8 +321,8 @@ grpc::Status RecloserServiceImpl::CreateRecloser(grpc::ServerContext *context,
 grpc::Status RecloserServiceImpl::UpdateRecloser(grpc::ServerContext *context,
                                                  const RecloserRecord *request,
                                                  GenericResponse *response) {
-  bool success = manager_->updateRecloser(
-      request->id(), request->description_key(), request->model());
+  bool success =
+      manager_->updateRecloser(request->id(), request->description_key());
   response->set_success(success);
   response->set_message(success ? "Recloser updated"
                                 : "Failed to update recloser");
@@ -367,9 +374,14 @@ grpc::Status RecloserServiceImpl::DeleteFirmware(grpc::ServerContext *context,
 grpc::Status RecloserServiceImpl::AddServiceNode(grpc::ServerContext *context,
                                                  const ServiceRecord *request,
                                                  GenericResponse *response) {
-  bool success =
-      manager_->addService(request->service_key(), request->description_key(),
-                           request->firmware_id(), request->parent_id());
+  int serviceId =
+      manager_->addService(request->description_key(), request->parent_id());
+  bool success = (serviceId > 0);
+  if (success && request->firmware_id() > 0) {
+    success =
+        manager_->linkServiceToFirmware(serviceId, request->firmware_id());
+  }
+
   response->set_success(success);
   response->set_message(success ? "Service created"
                                 : "Failed to create service");
@@ -381,8 +393,7 @@ RecloserServiceImpl::UpdateServiceNode(grpc::ServerContext *context,
                                        const ServiceRecord *request,
                                        GenericResponse *response) {
   bool success = manager_->updateService(
-      request->id(), request->service_key(), request->description_key(),
-      request->firmware_id(), request->parent_id());
+      request->id(), request->description_key(), request->parent_id());
   response->set_success(success);
   response->set_message(success ? "Service updated"
                                 : "Failed to update service");
@@ -443,7 +454,7 @@ RecloserServiceImpl::GetFullInventory(grpc::ServerContext *context,
   for (const auto &r : reclosers) {
     auto *ri = response->add_reclosers();
     ri->set_id(r.id);
-    ri->set_model(r.model);
+    ri->set_description_key(r.description_key);
 
     auto rTranslations = manager_->getTranslationsForKey(r.description_key);
     for (const auto &t : rTranslations) {
@@ -462,8 +473,9 @@ RecloserServiceImpl::GetFullInventory(grpc::ServerContext *context,
       auto topServices = manager_->getServicesByParentAndFirmware(0, f.id);
       for (const auto &s : topServices) {
         auto *sn = fi->add_services();
-        sn->set_id(s.id);
-        sn->set_service_key(s.service_key);
+        int sfId = manager_->getServiceFirmwareId(s.id, f.id);
+        sn->set_id(sfId);
+        sn->set_description_key(s.description_key);
 
         auto sTranslations = manager_->getTranslationsForKey(s.description_key);
         for (const auto &t : sTranslations) {
@@ -472,19 +484,22 @@ RecloserServiceImpl::GetFullInventory(grpc::ServerContext *context,
           trans->set_value(t.value);
         }
 
-        // Get features for this top service
-        auto features = manager_->getFeaturesByService(s.id);
-        for (const auto &feat : features) {
-          Feature *feature = sn->add_features();
-          feature->set_id(feat.id);
-          feature->set_feature_key(feat.description_key);
+        // Get features for this top service-firmware
+        // combination
+        if (sfId > 0) {
+          auto features = manager_->getFeaturesByServiceFirmware(sfId);
+          for (const auto &feat : features) {
+            Feature *feature = sn->add_features();
+            feature->set_id(feat.id);
+            feature->set_feature_key(feat.description_key);
 
-          auto fTranslations =
-              manager_->getTranslationsForKey(feat.description_key);
-          for (const auto &t : fTranslations) {
-            auto *trans = feature->add_translations();
-            trans->set_language_code(t.language_code);
-            trans->set_value(t.value);
+            auto fTranslations =
+                manager_->getTranslationsForKey(feat.description_key);
+            for (const auto &t : fTranslations) {
+              auto *trans = feature->add_translations();
+              trans->set_language_code(t.language_code);
+              trans->set_value(t.value);
+            }
           }
         }
 

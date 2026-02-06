@@ -4,6 +4,7 @@
 #include <memory>
 #include <optional>
 #include <string>
+#include <utility>
 #include <vector>
 
 struct TranslationRecord {
@@ -15,7 +16,6 @@ struct TranslationRecord {
 struct RecloserRecord {
   int id;
   std::string description_key;
-  std::string model;
 };
 
 struct FirmwareVersionRecord {
@@ -26,16 +26,14 @@ struct FirmwareVersionRecord {
 
 struct ServiceRecord {
   int id;
-  std::string service_key;
   std::string description_key;
   int parent_id; // 0 if parent
-  int firmware_id;
 };
 
 struct FeatureRecord {
   int id;
   std::string description_key;
-  int service_id;
+  int service_firmware_id;
 };
 
 class RecloserManager {
@@ -51,13 +49,16 @@ public:
   bool addDescriptionKey(const std::string &key);
   bool addTranslation(const std::string &key, const std::string &langCode,
                       const std::string &value);
+  bool addKeyWithTranslations(
+      const std::string &key,
+      const std::vector<std::pair<std::string, std::string>> &translations);
   std::string getTranslation(const std::string &key,
                              const std::string &langCode);
   std::vector<TranslationRecord> getTranslationsForKey(const std::string &key);
 
   // Recloser methods
-  bool addRecloser(const std::string &key, const std::string &model);
-  bool updateRecloser(int id, const std::string &key, const std::string &model);
+  bool addRecloser(const std::string &key);
+  bool updateRecloser(int id, const std::string &key);
   bool deleteRecloser(int id);
   std::vector<RecloserRecord> getAllReclosers();
   std::optional<RecloserRecord> getRecloserById(int id);
@@ -72,49 +73,52 @@ public:
   std::optional<FirmwareVersionRecord> getFirmwareVersionById(int id);
 
   // Service methods
-  bool addService(const std::string &serviceKey, const std::string &descKey,
-                  int firmwareId, int parentId = 0);
-  bool updateService(int id, const std::string &serviceKey,
-                     const std::string &descKey, int firmwareId,
-                     int parentId = 0);
+  int addService(const std::string &descKey, int parentId = 0);
+  bool updateService(int id, const std::string &descKey, int parentId = 0);
   bool deleteService(int id);
+  int linkServiceToFirmware(int serviceId, int firmwareId);
+  bool unlinkServiceFromFirmware(int serviceId, int firmwareId);
+  int getServiceFirmwareId(int serviceId, int firmwareId);
   std::vector<ServiceRecord> getAllServices();
   std::vector<ServiceRecord> getServicesByParentAndFirmware(int parentId,
                                                             int firmwareId);
   std::optional<ServiceRecord> getServiceById(int id);
 
   // Feature methods
-  bool addFeature(const std::string &descKey, int serviceId);
-  bool updateFeature(int id, const std::string &descKey, int serviceId);
+  int addFeature(const std::string &descKey, int serviceFirmwareId);
+  bool updateFeature(int id, const std::string &descKey, int serviceFirmwareId);
   bool deleteFeature(int id);
-  std::vector<FeatureRecord> getFeaturesByService(int serviceId);
+  std::vector<FeatureRecord>
+  getFeaturesByServiceFirmware(int serviceFirmwareId);
   std::optional<FeatureRecord> getFeatureById(int id);
 
-  // Layout methods
-  struct LayoutLimitRecord {
+  // Component methods
+  int linkFeatureToComponent(int featureId, const std::string &componentType);
+  bool addComponentLimit(int featureComponentId, const std::string &limitKey,
+                         const std::string &value);
+
+  struct ComponentLimitRecord {
     std::string key;
     std::string value;
   };
 
-  struct FeatureLayoutRecord {
+  struct FeatureComponentRecord {
     int feature_id;
     std::string feature_key;
     std::vector<TranslationRecord> translations;
     std::string component_type;
-    std::string component_key;
-    std::vector<LayoutLimitRecord> limits;
+    std::vector<ComponentLimitRecord> limits;
   };
 
   struct ServiceLayoutRecord {
     int service_id;
-    std::string service_key;
     std::string description_key;
     std::vector<TranslationRecord> translations;
-    std::vector<FeatureLayoutRecord> features;
+    std::vector<FeatureComponentRecord> features;
     std::vector<ServiceLayoutRecord> children;
   };
 
-  std::optional<ServiceLayoutRecord> getScreenLayout(int serviceId);
+  std::optional<ServiceLayoutRecord> getScreenLayout(int serviceFirmwareId);
 
   // Population method
   bool populateSampleLayoutData();
