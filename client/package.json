@@ -1,0 +1,27 @@
+{
+    "name": "recloser-client",
+    "version": "0.1.0",
+    "private": true,
+    "scripts": {
+        "dev": "next dev",
+        "build": "next build",
+        "start": "next start",
+        "lint": "next lint"
+    },
+    "dependencies": {
+        "next": "14.2.0",
+        "react": "latest",
+        "react-dom": "latest",
+        "@grpc/grpc-js": "^1.12.2",
+        "@grpc/proto-loader": "^0.7.13",
+        "lucide-react": "latest"
+    },
+    "devDependencies": {
+        "typescript": "latest",
+        "@types/node": "latest",
+        "@types/react": "latest",
+        "@types/react-dom": "latest",
+        "eslint": "latest",
+        "eslint-config-next": "latest"
+    }
+}

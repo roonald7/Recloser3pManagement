@@ -12,3 +12,7 @@ data/*.db
 # OS files
 .DS_Store
 Thumbs.db
+
+# Node.js
+client/node_modules/
+client/.next/
