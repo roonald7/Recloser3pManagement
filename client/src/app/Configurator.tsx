@@ -6,6 +6,7 @@ import {
     ChevronRight,
     Settings2,
     ToggleLeft,
+    ToggleRight,
     Monitor,
     Activity,
     ShieldCheck,
@@ -50,111 +51,129 @@ export default function Configurator({ firmwareId, services }: ConfiguratorProps
         return <Settings2 size={18} />;
     };
 
-    const renderComponent = (feature: any) => {
+    const ConfigField = ({ feature }: { feature: any }) => {
         const type = feature.component_type?.toUpperCase();
-
-        // Helper to get limit value by key
         const getLimit = (key: string) => feature.limits?.find((l: any) => l.key === key)?.value;
-
-        const minValue = getLimit('MIN_VALUE');
-        const maxValue = getLimit('MAX_VALUE');
         const defaultValue = getLimit('DEFAULT_VALUE');
-        const stepValue = getLimit('STEP');
-        const maxChar = getLimit('MAX_CHAR');
-        const minChar = getLimit('MIN_CHAR');
 
-        switch (type) {
-            case 'COMBOBOX':
-                return (
-                    <select className="select-control" defaultValue={defaultValue}>
-                        <option value="">Select Option...</option>
-                        {/* Options would normally come from another table or metadata */}
-                    </select>
-                );
-            case 'INTEGER':
-            case 'DECIMAL':
-            case 'FLOAT':
-                return (
-                    <input
-                        type="number"
-                        className="input-control"
-                        placeholder={defaultValue || "0"}
-                        min={minValue}
-                        max={maxValue}
-                        step={stepValue || (type === 'INTEGER' ? "1" : "0.01")}
-                        defaultValue={defaultValue}
-                        style={{ maxWidth: '200px' }}
-                    />
-                );
-            case 'SPINNER':
-                return (
-                    <div className="numeric-spinner-container">
-                        <button
-                            className="spinner-btn"
-                            onClick={(e) => {
-                                const input = e.currentTarget.parentElement?.querySelector('input');
-                                if (input) {
-                                    input.stepDown();
-                                    input.dispatchEvent(new Event('change', { bubbles: true }));
-                                }
-                            }}
+        const [value, setValue] = useState<any>(defaultValue);
+        const [isToggled, setIsToggled] = useState(defaultValue === 'true' || defaultValue === '1' || defaultValue === 'ON');
+
+        const renderInput = () => {
+            const minValue = getLimit('MIN_VALUE');
+            const maxValue = getLimit('MAX_VALUE');
+            const stepValue = getLimit('STEP');
+            const maxChar = getLimit('MAX_CHAR');
+            const minChar = getLimit('MIN_CHAR');
+
+            switch (type) {
+                case 'COMBOBOX':
+                    return (
+                        <select
+                            className="select-control"
+                            value={value}
+                            onChange={(e) => setValue(e.target.value)}
                         >
-                            <Minus size={14} />
-                        </button>
+                            <option value="">Select Option...</option>
+                            {/* Options would normally come from another table or metadata */}
+                        </select>
+                    );
+                case 'INTEGER':
+                case 'DECIMAL':
+                case 'FLOAT':
+                    return (
                         <input
                             type="number"
-                            className="input-control spinner-input"
+                            className="input-control"
                             placeholder={defaultValue || "0"}
                             min={minValue}
                             max={maxValue}
-                            step={stepValue || "1"}
-                            defaultValue={defaultValue}
+                            step={stepValue || (type === 'INTEGER' ? "1" : "0.01")}
+                            value={value || ''}
+                            onChange={(e) => setValue(e.target.value)}
+                            style={{ maxWidth: '200px' }}
                         />
-                        <button
-                            className="spinner-btn"
-                            onClick={(e) => {
-                                const input = e.currentTarget.parentElement?.querySelector('input');
-                                if (input) {
-                                    input.stepUp();
-                                    input.dispatchEvent(new Event('change', { bubbles: true }));
-                                }
-                            }}
+                    );
+                case 'SPINNER':
+                    return (
+                        <div className="numeric-spinner-container">
+                            <button
+                                className="spinner-btn"
+                                onClick={() => {
+                                    const num = parseFloat(value || defaultValue || "0");
+                                    const step = parseFloat(stepValue || "1");
+                                    setValue((num - step).toString());
+                                }}
+                            >
+                                <Minus size={14} />
+                            </button>
+                            <input
+                                type="number"
+                                className="input-control spinner-input"
+                                value={value || defaultValue || "0"}
+                                readOnly
+                            />
+                            <button
+                                className="spinner-btn"
+                                onClick={() => {
+                                    const num = parseFloat(value || defaultValue || "0");
+                                    const step = parseFloat(stepValue || "1");
+                                    setValue((num + step).toString());
+                                }}
+                            >
+                                <Plus size={14} />
+                            </button>
+                        </div>
+                    );
+                case 'TEXTFIELD':
+                    return (
+                        <input
+                            type="text"
+                            className="input-control"
+                            placeholder="Enter text..."
+                            maxLength={maxChar ? parseInt(maxChar) : undefined}
+                            minLength={minChar ? parseInt(minChar) : undefined}
+                            value={value || ''}
+                            onChange={(e) => setValue(e.target.value)}
+                        />
+                    );
+                case 'TOGGLE':
+                    return (
+                        <div
+                            onClick={() => setIsToggled(!isToggled)}
+                            style={{ cursor: 'pointer', transition: 'all 0.2s' }}
                         >
-                            <Plus size={14} />
-                        </button>
-                    </div>
-                );
-            case 'TEXTFIELD':
-                return (
-                    <input
-                        type="text"
-                        className="input-control"
-                        placeholder="Enter text..."
-                        maxLength={maxChar ? parseInt(maxChar) : undefined}
-                        minLength={minChar ? parseInt(minChar) : undefined}
-                        defaultValue={defaultValue}
-                    />
-                );
-            case 'TOGGLE':
-                return <ToggleLeft size={32} style={{ cursor: 'pointer', color: 'var(--primary)' }} />;
-            case 'CHECKBOX':
-                return <input type="checkbox" style={{ width: '20px', height: '20px' }} defaultChecked={defaultValue === 'true'} />;
-            case 'DATE':
-                return <input type="date" className="input-control" defaultValue={defaultValue} />;
-            case 'TIME':
-                return <input type="time" className="input-control" defaultValue={defaultValue} />;
-            case 'DATETIME':
-                return <input type="datetime-local" className="input-control" defaultValue={defaultValue} />;
-            default:
-                return <input type="text" className="input-control" placeholder="Enter value..." defaultValue={defaultValue} />;
-        }
-    };
+                            {isToggled ? (
+                                <ToggleRight size={32} color="var(--primary)" />
+                            ) : (
+                                <ToggleLeft size={32} color="var(--text-muted)" />
+                            )}
+                        </div>
+                    );
+                case 'CHECKBOX':
+                    return (
+                        <input
+                            type="checkbox"
+                            style={{ width: '20px', height: '20px', cursor: 'pointer' }}
+                            checked={isToggled}
+                            onChange={() => setIsToggled(!isToggled)}
+                        />
+                    );
+                case 'DATE':
+                    return <input type="date" className="input-control" value={value} onChange={(e) => setValue(e.target.value)} />;
+                case 'TIME':
+                    return <input type="time" className="input-control" value={value} onChange={(e) => setValue(e.target.value)} />;
+                case 'DATETIME':
+                    return <input type="datetime-local" className="input-control" value={value} onChange={(e) => setValue(e.target.value)} />;
+                default:
+                    return <input type="text" className="input-control" placeholder="Enter value..." value={value} onChange={(e) => setValue(e.target.value)} />;
+            }
+        };
 
-    const renderFeatureBlock = (feat: any) => {
-        const isContainer = feat.children && feat.children.length > 0;
+        const isContainer = feature.children && feature.children.length > 0;
 
         return (
-            <div key={feat.feature_id} className={isContainer ? "container-block" : "feature-form-item"} style={isContainer ? { gridColumn: '1 / -1', marginTop: '1rem' } : {}}>
+            <div key={feature.feature_id} className={isContainer ? "container-block" : "feature-form-item"} style={isContainer ? { gridColumn: '1 / -1', marginTop: '1rem' } : {}}>
                 {isContainer ? (
                     <div className="container-wrapper" style={{
                         border: '1px solid var(--glass-border)',
@@ -164,28 +183,28 @@ export default function Configurator({ firmwareId, services }: ConfiguratorProps
                     }}>
                         <div className="label-container" style={{ marginBottom: '1rem', borderBottom: '1px solid var(--glass-border)', paddingBottom: '0.5rem' }}>
                             <div className="feature-label" style={{ fontSize: '1.1rem', color: 'var(--accent)' }}>
-                                {getTranslation(feat.translations)}
+                                {getTranslation(feature.translations)}
                             </div>
                             <div className="badge" style={{ fontSize: '0.65rem' }}>
-                                {feat.component_type}
+                                {feature.component_type}
                             </div>
                         </div>
                         <div className="feature-grid">
-                            {feat.children.map((child: any) => renderFeatureBlock(child))}
+                            {feature.children.map((child: any) => <ConfigField key={child.feature_id} feature={child} />)}
                         </div>
                     </div>
                 ) : (
                     <>
                         <div className="label-container">
                             <div className="feature-label">
-                                {getTranslation(feat.translations)}
+                                {getTranslation(feature.translations)}
                             </div>
                             <div className="badge" style={{ color: 'var(--text-muted)', fontSize: '0.65rem' }}>
-                                {feat.component_type}
+                                {feature.component_type}
                             </div>
                         </div>
                         <div className="control-container">
-                            {renderComponent(feat)}
+                            {renderInput()}
                         </div>
                     </>
                 )}
@@ -219,7 +238,7 @@ export default function Configurator({ firmwareId, services }: ConfiguratorProps
 
                 {hasFeatures && (
                     <div className="feature-grid">
-                        {data.features.map((feat: any) => renderFeatureBlock(feat))}
+                        {data.features.map((feat: any) => <ConfigField key={feat.feature_id} feature={feat} />)}
                     </div>
                 )}
 
@@ -239,24 +258,44 @@ export default function Configurator({ firmwareId, services }: ConfiguratorProps
         );
     };
 
+    const renderSidebarItem = (svc: any, depth: number = 0) => {
+        const hasChildren = svc.children && svc.children.length > 0;
+        const isActive = selectedServiceId === svc.id;
+
+        return (
+            <div key={svc.id}>
+                <div
+                    className={`sidebar-item ${isActive ? 'active' : ''} ${depth > 0 ? 'nested' : ''}`}
+                    onClick={() => setSelectedServiceId(svc.id)}
+                    style={{
+                        paddingLeft: `${1 + depth * 1.25}rem`,
+                        fontSize: depth > 0 ? '0.9rem' : '1rem'
+                    }}
+                >
+                    {depth === 0 ? getServiceIcon(svc.description_key) : <ChevronRight size={12} style={{ opacity: isActive ? 1 : 0.3 }} />}
+                    <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
+                        <span style={{ fontWeight: depth === 0 ? 600 : 400 }}>{getTranslation(svc.translations)}</span>
+                    </div>
+                </div>
+                {hasChildren && (
+                    <div className="sidebar-sub-group">
+                        {svc.children.map((child: any) => renderSidebarItem(child, depth + 1))}
+                    </div>
+                )}
+            </div>
+        );
+    };
+
     return (
         <div className="configurator-layout">
             {/* Side Menu */}
             <aside className="sidebar">
-                <h2 className="section-title" style={{ padding: '0 1rem', marginBottom: '1.5rem' }}>Services</h2>
-                {services.map((svc) => (
-                    <div
-                        key={svc.id}
-                        className={`sidebar-item ${selectedServiceId === svc.id ? 'active' : ''}`}
-                        onClick={() => setSelectedServiceId(svc.id)}
-                    >
-                        {getServiceIcon(svc.description_key)}
-                        <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
-                            <span style={{ fontWeight: 500 }}>{getTranslation(svc.translations)}</span>
-                        </div>
-                        <ChevronRight size={14} opacity={0.5} />
-                    </div>
-                ))}
+                <h2 className="section-title" style={{ padding: '0 1rem', marginBottom: '1.5rem', fontSize: '1.25rem', fontWeight: 800, letterSpacing: '-0.025em' }}>
+                    Services
+                </h2>
+                <div className="sidebar-scroll">
+                    {services.map((svc) => renderSidebarItem(svc))}
+                </div>
             </aside>
 
             {/* Main Content Area */}
