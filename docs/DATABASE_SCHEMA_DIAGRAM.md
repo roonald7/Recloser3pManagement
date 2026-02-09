@@ -6,10 +6,10 @@
 erDiagram
     Languages ||--o{ Translations : "has"
     Descriptions ||--o{ Translations : "has"
-    Descriptions ||--o{ Reclosers : "describes"
+    Descriptions ||--o{ Devices : "describes"
     Descriptions ||--o{ Services : "describes"
     Descriptions ||--o{ Features : "describes"
-    Reclosers ||--o{ FirmwareVersions : "has"
+    Devices ||--o{ FirmwareVersions : "has"
     FirmwareVersions ||--o{ Services : "has"
     Services ||--o{ Services : "parent-child"
     Services ||--o{ Features : "has"
@@ -34,16 +34,16 @@ erDiagram
         TEXT value "Translated text"
     }
 
-    Reclosers {
+    Devices {
         INTEGER id PK "Auto-increment ID"
         TEXT description_key FK "References Descriptions"
-        TEXT model "Recloser model"
+        TEXT model "Device model"
     }
 
     FirmwareVersions {
         INTEGER id PK "Auto-increment ID"
         TEXT version "Firmware version"
-        INTEGER recloser_id FK "References Reclosers"
+        INTEGER device_id FK "References Devices"
     }
 
     Services {
@@ -114,10 +114,10 @@ erDiagram
 
 - **Languages** → **Translations** (1:N)
 - **Descriptions** → **Translations** (1:N)
-- **Descriptions** → **Reclosers** (1:N)
+- **Descriptions** → **Devices** (1:N)
 - **Descriptions** → **Services** (1:N)
 - **Descriptions** → **Features** (1:N)
-- **Reclosers** → **FirmwareVersions** (1:N)
+- **Devices** → **FirmwareVersions** (1:N)
 - **FirmwareVersions** → **Services** (1:N)
 - **Services** → **Services** (1:N, self-referencing)
 - **Services** → **Features** (1:N)

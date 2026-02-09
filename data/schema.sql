@@ -27,8 +27,8 @@ CREATE TABLE IF NOT EXISTS Translations (
     FOREIGN KEY (language_code) REFERENCES Languages(code) ON DELETE CASCADE
 );
 
--- Reclosers table
-CREATE TABLE IF NOT EXISTS Reclosers (
+-- Devices table
+CREATE TABLE IF NOT EXISTS Devices (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     description_key TEXT UNIQUE NOT NULL,
     FOREIGN KEY (description_key) REFERENCES Descriptions(key)
@@ -38,8 +38,8 @@ CREATE TABLE IF NOT EXISTS Reclosers (
 CREATE TABLE IF NOT EXISTS FirmwareVersions (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     version TEXT NOT NULL,
-    recloser_id INTEGER NOT NULL,
-    FOREIGN KEY (recloser_id) REFERENCES Reclosers(id) ON DELETE CASCADE
+    device_id INTEGER NOT NULL,
+    FOREIGN KEY (device_id) REFERENCES Devices(id) ON DELETE CASCADE
 );
 
 -- Services table

@@ -1,13 +1,13 @@
 #pragma once
 
-#include "RecloserManager.hpp"
-#include "recloser.grpc.pb.h"
+#include "DeviceManager.hpp"
+#include "device.grpc.pb.h"
 #include <grpcpp/grpcpp.h>
 #include <map>
 #include <memory>
 #include <set>
 
-namespace recloser {
+namespace device {
 
 // Helper structure for comparison
 struct ServiceTreeNode {
@@ -17,9 +17,9 @@ struct ServiceTreeNode {
   std::map<std::string, ServiceTreeNode> children;
 };
 
-class RecloserServiceImpl final : public RecloserService::Service {
+class DeviceServiceImpl final : public DeviceService::Service {
 public:
-  explicit RecloserServiceImpl(RecloserManager *manager);
+  explicit DeviceServiceImpl(DeviceManager *manager);
 
   grpc::Status GetServiceTree(grpc::ServerContext *context,
                               const ServiceTreeRequest *request,
@@ -39,15 +39,15 @@ public:
                                 FullInventoryResponse *response) override;
 
   // CRUD Operations
-  grpc::Status CreateRecloser(grpc::ServerContext *context,
-                              const RecloserRecord *request,
-                              GenericResponse *response) override;
-  grpc::Status UpdateRecloser(grpc::ServerContext *context,
-                              const RecloserRecord *request,
-                              GenericResponse *response) override;
-  grpc::Status DeleteRecloser(grpc::ServerContext *context,
-                              const DeleteRequest *request,
-                              GenericResponse *response) override;
+  grpc::Status CreateDevice(grpc::ServerContext *context,
+                            const DeviceRecord *request,
+                            GenericResponse *response) override;
+  grpc::Status UpdateDevice(grpc::ServerContext *context,
+                            const DeviceRecord *request,
+                            GenericResponse *response) override;
+  grpc::Status DeleteDevice(grpc::ServerContext *context,
+                            const DeleteRequest *request,
+                            GenericResponse *response) override;
 
   grpc::Status CreateFirmware(grpc::ServerContext *context,
                               const FirmwareRecord *request,
@@ -80,7 +80,7 @@ public:
                              GenericResponse *response) override;
 
 private:
-  RecloserManager *manager_;
+  DeviceManager *manager_;
 
   // Helper to build service tree recursively
   void buildServiceNode(int parentId, int firmwareId, ServiceNode *node);
@@ -98,10 +98,10 @@ private:
       int &added, int &removed, int &modified);
 
   // Helper to build screen layout recursively
-  void populateServiceLayout(const RecloserManager::ServiceLayoutRecord &rec,
+  void populateServiceLayout(const DeviceManager::ServiceLayoutRecord &rec,
                              ServiceLayout *layout);
-  void populateFeatureDetail(const RecloserManager::FeatureComponentRecord &rec,
+  void populateFeatureDetail(const DeviceManager::FeatureComponentRecord &rec,
                              FeatureComponentDetail *detail);
 };
 
-} // namespace recloser
+} // namespace device

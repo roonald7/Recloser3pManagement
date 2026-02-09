@@ -2,7 +2,7 @@ import * as grpc from '@grpc/grpc-js';
 import * as protoLoader from '@grpc/proto-loader';
 import path from 'path';
 
-const PROTO_PATH = path.resolve(process.cwd(), '../proto/recloser.proto');
+const PROTO_PATH = path.resolve(process.cwd(), '../proto/device.proto');
 
 const packageDefinition = protoLoader.loadSync(PROTO_PATH, {
     keepCase: true,
@@ -13,9 +13,9 @@ const packageDefinition = protoLoader.loadSync(PROTO_PATH, {
 });
 
 const protoDescriptor = grpc.loadPackageDefinition(packageDefinition) as any;
-const recloserProto = protoDescriptor.recloser;
+const deviceProto = protoDescriptor.device;
 
-export const client = new recloserProto.RecloserService(
+export const client = new deviceProto.DeviceService(
     process.env.GRPC_SERVER_ADDR || 'localhost:50051',
     grpc.credentials.createInsecure()
 );

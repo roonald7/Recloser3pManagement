@@ -9,7 +9,9 @@ import {
     Monitor,
     Activity,
     ShieldCheck,
-    LayoutGrid
+    LayoutGrid,
+    Plus,
+    Minus
 } from 'lucide-react';
 
 interface ConfiguratorProps {
@@ -73,21 +75,53 @@ export default function Configurator({ firmwareId, services }: ConfiguratorProps
             case 'DECIMAL':
             case 'FLOAT':
                 return (
-                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem', alignItems: 'center' }}>
+                    <input
+                        type="number"
+                        className="input-control"
+                        placeholder={defaultValue || "0"}
+                        min={minValue}
+                        max={maxValue}
+                        step={stepValue || (type === 'INTEGER' ? "1" : "0.01")}
+                        defaultValue={defaultValue}
+                        style={{ maxWidth: '200px' }}
+                    />
+                );
+            case 'SPINNER':
+                return (
+                    <div className="numeric-spinner-container">
+                        <button
+                            className="spinner-btn"
+                            onClick={(e) => {
+                                const input = e.currentTarget.parentElement?.querySelector('input');
+                                if (input) {
+                                    input.stepDown();
+                                    input.dispatchEvent(new Event('change', { bubbles: true }));
+                                }
+                            }}
+                        >
+                            <Minus size={14} />
+                        </button>
                         <input
                             type="number"
-                            className="input-control"
+                            className="input-control spinner-input"
                             placeholder={defaultValue || "0"}
                             min={minValue}
                             max={maxValue}
-                            step={stepValue || (type === 'INTEGER' ? "1" : "0.01")}
+                            step={stepValue || "1"}
                             defaultValue={defaultValue}
                         />
-                        <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', width: '100%' }}>
-                            {minValue && <span>Min: {minValue} </span>}
-                            {maxValue && <span>Max: {maxValue} </span>}
-                            {stepValue && <span>Step: {stepValue} </span>}
-                        </div>
+                        <button
+                            className="spinner-btn"
+                            onClick={(e) => {
+                                const input = e.currentTarget.parentElement?.querySelector('input');
+                                if (input) {
+                                    input.stepUp();
+                                    input.dispatchEvent(new Event('change', { bubbles: true }));
+                                }
+                            }}
+                        >
+                            <Plus size={14} />
+                        </button>
                     </div>
                 );
             case 'TEXTFIELD':
@@ -219,9 +253,6 @@ export default function Configurator({ firmwareId, services }: ConfiguratorProps
                         {getServiceIcon(svc.description_key)}
                         <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
                             <span style={{ fontWeight: 500 }}>{getTranslation(svc.translations)}</span>
-                            <span style={{ fontSize: '0.65rem', color: 'var(--text-muted)', fontFamily: 'monospace' }}>
-                                {svc.description_key}
-                            </span>
                         </div>
                         <ChevronRight size={14} opacity={0.5} />
                     </div>
@@ -235,7 +266,6 @@ export default function Configurator({ firmwareId, services }: ConfiguratorProps
                 ) : layout ? (
                     <div>
                         <div style={{ marginBottom: '2.5rem' }}>
-                            <div className="badge" style={{ marginBottom: '1rem' }}>{layout.description_key}</div>
                             <h2 style={{ fontSize: '1.75rem', fontWeight: 700 }}>
                                 {getTranslation(layout.translations)}
                             </h2>

@@ -1,16 +1,16 @@
-#include "RecloserServiceImpl.hpp"
+#include "DeviceServiceImpl.hpp"
 #include <iostream>
 #include <sstream>
 
-namespace recloser {
+namespace device {
 
-RecloserServiceImpl::RecloserServiceImpl(RecloserManager *manager)
+DeviceServiceImpl::DeviceServiceImpl(DeviceManager *manager)
     : manager_(manager) {}
 
 grpc::Status
-RecloserServiceImpl::GetServiceTree(grpc::ServerContext *context,
-                                    const ServiceTreeRequest *request,
-                                    ServiceTreeResponse *response) {
+DeviceServiceImpl::GetServiceTree(grpc::ServerContext *context,
+                                  const ServiceTreeRequest *request,
+                                  ServiceTreeResponse *response) {
 
   int firmwareId = request->firmware_id();
 
@@ -60,7 +60,7 @@ RecloserServiceImpl::GetServiceTree(grpc::ServerContext *context,
   return grpc::Status::OK;
 }
 
-grpc::Status RecloserServiceImpl::CompareServiceTrees(
+grpc::Status DeviceServiceImpl::CompareServiceTrees(
     grpc::ServerContext *context, const CompareServiceTreesRequest *request,
     CompareServiceTreesResponse *response) {
 
@@ -94,8 +94,8 @@ grpc::Status RecloserServiceImpl::CompareServiceTrees(
   return grpc::Status::OK;
 }
 
-void RecloserServiceImpl::buildServiceNode(int parentId, int firmwareId,
-                                           ServiceNode *parentNode) {
+void DeviceServiceImpl::buildServiceNode(int parentId, int firmwareId,
+                                         ServiceNode *parentNode) {
 
   auto childServices =
       manager_->getServicesByParentAndFirmware(parentId, firmwareId);
@@ -137,7 +137,7 @@ void RecloserServiceImpl::buildServiceNode(int parentId, int firmwareId,
   }
 }
 
-void RecloserServiceImpl::buildInternalTree(
+void DeviceServiceImpl::buildInternalTree(
     int parentId, int firmwareId, const std::string &languageCode,
     std::map<std::string, ServiceTreeNode> &tree) {
 
@@ -166,7 +166,7 @@ void RecloserServiceImpl::buildInternalTree(
   }
 }
 
-void RecloserServiceImpl::compareNodes(
+void DeviceServiceImpl::compareNodes(
     const std::map<std::string, ServiceTreeNode> &tree1,
     const std::map<std::string, ServiceTreeNode> &tree2,
     google::protobuf::RepeatedPtrField<ServiceDifference> *differences,
@@ -250,9 +250,9 @@ void RecloserServiceImpl::compareNodes(
 }
 
 grpc::Status
-RecloserServiceImpl::GetScreenLayout(grpc::ServerContext *context,
-                                     const ScreenLayoutRequest *request,
-                                     ScreenLayoutResponse *response) {
+DeviceServiceImpl::GetScreenLayout(grpc::ServerContext *context,
+                                   const ScreenLayoutRequest *request,
+                                   ScreenLayoutResponse *response) {
 
   int serviceId = request->service_id();
 
@@ -270,8 +270,8 @@ RecloserServiceImpl::GetScreenLayout(grpc::ServerContext *context,
   }
 }
 
-void RecloserServiceImpl::populateServiceLayout(
-    const RecloserManager::ServiceLayoutRecord &rec, ServiceLayout *layout) {
+void DeviceServiceImpl::populateServiceLayout(
+    const DeviceManager::ServiceLayoutRecord &rec, ServiceLayout *layout) {
 
   layout->set_service_id(rec.service_id);
   layout->set_description_key(rec.description_key);
@@ -293,8 +293,8 @@ void RecloserServiceImpl::populateServiceLayout(
   }
 }
 
-void RecloserServiceImpl::populateFeatureDetail(
-    const RecloserManager::FeatureComponentRecord &rec,
+void DeviceServiceImpl::populateFeatureDetail(
+    const DeviceManager::FeatureComponentRecord &rec,
     FeatureComponentDetail *detail) {
   detail->set_feature_id(rec.feature_id);
   detail->set_feature_key(rec.feature_key);
@@ -319,62 +319,59 @@ void RecloserServiceImpl::populateFeatureDetail(
   }
 }
 
-grpc::Status RecloserServiceImpl::CreateRecloser(grpc::ServerContext *context,
-                                                 const RecloserRecord *request,
-                                                 GenericResponse *response) {
-  bool success = manager_->addRecloser(request->description_key());
+grpc::Status DeviceServiceImpl::CreateDevice(grpc::ServerContext *context,
+                                             const DeviceRecord *request,
+                                             GenericResponse *response) {
+  bool success = manager_->addDevice(request->description_key());
   response->set_success(success);
-  response->set_message(success ? "Recloser created"
-                                : "Failed to create recloser");
+  response->set_message(success ? "Device created" : "Failed to create device");
   return grpc::Status::OK;
 }
 
-grpc::Status RecloserServiceImpl::UpdateRecloser(grpc::ServerContext *context,
-                                                 const RecloserRecord *request,
-                                                 GenericResponse *response) {
+grpc::Status DeviceServiceImpl::UpdateDevice(grpc::ServerContext *context,
+                                             const DeviceRecord *request,
+                                             GenericResponse *response) {
   bool success =
-      manager_->updateRecloser(request->id(), request->description_key());
+      manager_->updateDevice(request->id(), request->description_key());
   response->set_success(success);
-  response->set_message(success ? "Recloser updated"
-                                : "Failed to update recloser");
+  response->set_message(success ? "Device updated" : "Failed to update device");
   return grpc::Status::OK;
 }
 
-grpc::Status RecloserServiceImpl::DeleteRecloser(grpc::ServerContext *context,
-                                                 const DeleteRequest *request,
-                                                 GenericResponse *response) {
-  bool success = manager_->deleteRecloser(request->id());
+grpc::Status DeviceServiceImpl::DeleteDevice(grpc::ServerContext *context,
+                                             const DeleteRequest *request,
+                                             GenericResponse *response) {
+  bool success = manager_->deleteDevice(request->id());
   response->set_success(success);
-  response->set_message(success ? "Recloser deleted"
-                                : "Failed to delete recloser");
+  response->set_message(success ? "Device deleted" : "Failed to delete device");
   return grpc::Status::OK;
 }
 
-grpc::Status RecloserServiceImpl::CreateFirmware(grpc::ServerContext *context,
-                                                 const FirmwareRecord *request,
-                                                 GenericResponse *response) {
-  bool success =
-      manager_->addFirmwareVersion(request->version(), request->recloser_id());
+grpc::Status DeviceServiceImpl::CreateFirmware(grpc::ServerContext *context,
+                                               const FirmwareRecord *request,
+                                               GenericResponse *response) {
+  bool success = manager_->addFirmwareVersion(request->version(),
+                                              request->device_model_id());
   response->set_success(success);
   response->set_message(success ? "Firmware created"
                                 : "Failed to create firmware");
   return grpc::Status::OK;
 }
 
-grpc::Status RecloserServiceImpl::UpdateFirmware(grpc::ServerContext *context,
-                                                 const FirmwareRecord *request,
-                                                 GenericResponse *response) {
+grpc::Status DeviceServiceImpl::UpdateFirmware(grpc::ServerContext *context,
+                                               const FirmwareRecord *request,
+                                               GenericResponse *response) {
   bool success = manager_->updateFirmwareVersion(
-      request->id(), request->version(), request->recloser_id());
+      request->id(), request->version(), request->device_model_id());
   response->set_success(success);
   response->set_message(success ? "Firmware updated"
                                 : "Failed to update firmware");
   return grpc::Status::OK;
 }
 
-grpc::Status RecloserServiceImpl::DeleteFirmware(grpc::ServerContext *context,
-                                                 const DeleteRequest *request,
-                                                 GenericResponse *response) {
+grpc::Status DeviceServiceImpl::DeleteFirmware(grpc::ServerContext *context,
+                                               const DeleteRequest *request,
+                                               GenericResponse *response) {
   bool success = manager_->deleteFirmwareVersion(request->id());
   response->set_success(success);
   response->set_message(success ? "Firmware deleted"
@@ -382,9 +379,9 @@ grpc::Status RecloserServiceImpl::DeleteFirmware(grpc::ServerContext *context,
   return grpc::Status::OK;
 }
 
-grpc::Status RecloserServiceImpl::AddServiceNode(grpc::ServerContext *context,
-                                                 const ServiceRecord *request,
-                                                 GenericResponse *response) {
+grpc::Status DeviceServiceImpl::AddServiceNode(grpc::ServerContext *context,
+                                               const ServiceRecord *request,
+                                               GenericResponse *response) {
   int serviceId =
       manager_->addService(request->description_key(), request->parent_id());
   bool success = (serviceId > 0);
@@ -399,10 +396,9 @@ grpc::Status RecloserServiceImpl::AddServiceNode(grpc::ServerContext *context,
   return grpc::Status::OK;
 }
 
-grpc::Status
-RecloserServiceImpl::UpdateServiceNode(grpc::ServerContext *context,
-                                       const ServiceRecord *request,
-                                       GenericResponse *response) {
+grpc::Status DeviceServiceImpl::UpdateServiceNode(grpc::ServerContext *context,
+                                                  const ServiceRecord *request,
+                                                  GenericResponse *response) {
   bool success = manager_->updateService(
       request->id(), request->description_key(), request->parent_id());
   response->set_success(success);
@@ -411,10 +407,9 @@ RecloserServiceImpl::UpdateServiceNode(grpc::ServerContext *context,
   return grpc::Status::OK;
 }
 
-grpc::Status
-RecloserServiceImpl::DeleteServiceNode(grpc::ServerContext *context,
-                                       const DeleteRequest *request,
-                                       GenericResponse *response) {
+grpc::Status DeviceServiceImpl::DeleteServiceNode(grpc::ServerContext *context,
+                                                  const DeleteRequest *request,
+                                                  GenericResponse *response) {
   bool success = manager_->deleteService(request->id());
   response->set_success(success);
   response->set_message(success ? "Service deleted"
@@ -422,9 +417,9 @@ RecloserServiceImpl::DeleteServiceNode(grpc::ServerContext *context,
   return grpc::Status::OK;
 }
 
-grpc::Status RecloserServiceImpl::CreateFeature(grpc::ServerContext *context,
-                                                const FeatureRecord *request,
-                                                GenericResponse *response) {
+grpc::Status DeviceServiceImpl::CreateFeature(grpc::ServerContext *context,
+                                              const FeatureRecord *request,
+                                              GenericResponse *response) {
   bool success =
       manager_->addFeature(request->description_key(), request->service_id());
   response->set_success(success);
@@ -433,9 +428,9 @@ grpc::Status RecloserServiceImpl::CreateFeature(grpc::ServerContext *context,
   return grpc::Status::OK;
 }
 
-grpc::Status RecloserServiceImpl::UpdateFeature(grpc::ServerContext *context,
-                                                const FeatureRecord *request,
-                                                GenericResponse *response) {
+grpc::Status DeviceServiceImpl::UpdateFeature(grpc::ServerContext *context,
+                                              const FeatureRecord *request,
+                                              GenericResponse *response) {
   bool success = manager_->updateFeature(
       request->id(), request->description_key(), request->service_id());
   response->set_success(success);
@@ -444,9 +439,9 @@ grpc::Status RecloserServiceImpl::UpdateFeature(grpc::ServerContext *context,
   return grpc::Status::OK;
 }
 
-grpc::Status RecloserServiceImpl::DeleteFeature(grpc::ServerContext *context,
-                                                const DeleteRequest *request,
-                                                GenericResponse *response) {
+grpc::Status DeviceServiceImpl::DeleteFeature(grpc::ServerContext *context,
+                                              const DeleteRequest *request,
+                                              GenericResponse *response) {
   bool success = manager_->deleteFeature(request->id());
   response->set_success(success);
   response->set_message(success ? "Feature deleted"
@@ -455,67 +450,84 @@ grpc::Status RecloserServiceImpl::DeleteFeature(grpc::ServerContext *context,
 }
 
 grpc::Status
-RecloserServiceImpl::GetFullInventory(grpc::ServerContext *context,
-                                      const FullInventoryRequest *request,
-                                      FullInventoryResponse *response) {
+DeviceServiceImpl::GetFullInventory(grpc::ServerContext *context,
+                                    const FullInventoryRequest *request,
+                                    FullInventoryResponse *response) {
 
   std::cout << "GetFullInventory called" << std::endl;
 
-  auto reclosers = manager_->getAllReclosers();
-  for (const auto &r : reclosers) {
-    auto *ri = response->add_reclosers();
-    ri->set_id(r.id);
-    ri->set_description_key(r.description_key);
+  auto devices = manager_->getAllDevices();
+  for (const auto &d : devices) {
+    auto *di = response->add_devices();
+    di->set_id(d.id);
+    di->set_description_key(d.description_key);
 
-    auto rTranslations = manager_->getTranslationsForKey(r.description_key);
-    for (const auto &t : rTranslations) {
-      auto *trans = ri->add_translations();
+    auto dTranslations = manager_->getTranslationsForKey(d.description_key);
+    for (const auto &t : dTranslations) {
+      auto *trans = di->add_translations();
       trans->set_language_code(t.language_code);
       trans->set_value(t.value);
     }
 
-    auto firmwares = manager_->getFirmwareVersionsForRecloser(r.id);
-    for (const auto &f : firmwares) {
-      auto *fi = ri->add_firmwares();
-      fi->set_id(f.id);
-      fi->set_version(f.version);
+    auto deviceModels = manager_->getDeviceModelsForDevice(d.id);
+    for (const auto &dm : deviceModels) {
+      auto modelOpt = manager_->getModelById(dm.model_id);
+      if (!modelOpt)
+        continue;
 
-      // Fetch top level services for this firmware
-      auto topServices = manager_->getServicesByParentAndFirmware(0, f.id);
-      for (const auto &s : topServices) {
-        auto *sn = fi->add_services();
-        int sfId = manager_->getServiceFirmwareId(s.id, f.id);
-        sn->set_id(sfId);
-        sn->set_description_key(s.description_key);
+      auto *mi = di->add_models();
+      mi->set_id(dm.model_id);
+      mi->set_device_model_id(dm.id);
+      mi->set_description_key(modelOpt->description_key);
 
-        auto sTranslations = manager_->getTranslationsForKey(s.description_key);
-        for (const auto &t : sTranslations) {
-          auto *trans = sn->add_translations();
-          trans->set_language_code(t.language_code);
-          trans->set_value(t.value);
-        }
+      auto mTranslations =
+          manager_->getTranslationsForKey(modelOpt->description_key);
+      for (const auto &t : mTranslations) {
+        auto *trans = mi->add_translations();
+        trans->set_language_code(t.language_code);
+        trans->set_value(t.value);
+      }
 
-        // Get features for this top service-firmware
-        // combination
-        if (sfId > 0) {
-          auto features = manager_->getFeaturesByServiceFirmware(sfId);
-          for (const auto &feat : features) {
-            Feature *feature = sn->add_features();
-            feature->set_id(feat.id);
-            feature->set_feature_key(feat.description_key);
+      auto firmwares = manager_->getFirmwareVersionsForDeviceModel(dm.id);
+      for (const auto &f : firmwares) {
+        auto *fi = mi->add_firmwares();
+        fi->set_id(f.id);
+        fi->set_version(f.version);
 
-            auto fTranslations =
-                manager_->getTranslationsForKey(feat.description_key);
-            for (const auto &t : fTranslations) {
-              auto *trans = feature->add_translations();
-              trans->set_language_code(t.language_code);
-              trans->set_value(t.value);
+        // Fetch top level services for this firmware
+        auto topServices = manager_->getServicesByParentAndFirmware(0, f.id);
+        for (const auto &s : topServices) {
+          auto *sn = fi->add_services();
+          int sfId = manager_->getServiceFirmwareId(s.id, f.id);
+          sn->set_id(sfId);
+          sn->set_description_key(s.description_key);
+
+          auto sTranslations =
+              manager_->getTranslationsForKey(s.description_key);
+          for (const auto &t : sTranslations) {
+            auto *trans = sn->add_translations();
+            trans->set_language_code(t.language_code);
+            trans->set_value(t.value);
+          }
+
+          if (sfId > 0) {
+            auto features = manager_->getFeaturesByServiceFirmware(sfId);
+            for (const auto &feat : features) {
+              Feature *feature = sn->add_features();
+              feature->set_id(feat.id);
+              feature->set_feature_key(feat.description_key);
+
+              auto fTranslations =
+                  manager_->getTranslationsForKey(feat.description_key);
+              for (const auto &t : fTranslations) {
+                auto *trans = feature->add_translations();
+                trans->set_language_code(t.language_code);
+                trans->set_value(t.value);
+              }
             }
           }
+          buildServiceNode(s.id, f.id, sn);
         }
-
-        // Recursively build children
-        buildServiceNode(s.id, f.id, sn);
       }
     }
   }
@@ -523,4 +535,4 @@ RecloserServiceImpl::GetFullInventory(grpc::ServerContext *context,
   return grpc::Status::OK;
 }
 
-} // namespace recloser
+} // namespace device

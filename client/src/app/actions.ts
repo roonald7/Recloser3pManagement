@@ -5,7 +5,7 @@ import { client, promisifyGrpc } from '@/lib/grpc';
 export async function getInventory() {
     try {
         const response = await promisifyGrpc<any>(client.GetFullInventory, {});
-        return response.reclosers || [];
+        return response.devices || [];
     } catch (error) {
         console.error('Failed to fetch inventory:', error);
         return [];

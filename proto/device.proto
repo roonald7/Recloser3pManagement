@@ -1,8 +1,8 @@
 syntax = "proto3";
 
-package recloser;
+package device;
 
-service RecloserService {
+service DeviceService {
   rpc GetServiceTree(ServiceTreeRequest) returns (ServiceTreeResponse);
   rpc CompareServiceTrees(CompareServiceTreesRequest)
       returns (CompareServiceTreesResponse);
@@ -10,9 +10,9 @@ service RecloserService {
   rpc GetFullInventory(FullInventoryRequest) returns (FullInventoryResponse);
 
   // CRUD Operations
-  rpc CreateRecloser(RecloserRecord) returns (GenericResponse);
-  rpc UpdateRecloser(RecloserRecord) returns (GenericResponse);
-  rpc DeleteRecloser(DeleteRequest) returns (GenericResponse);
+  rpc CreateDevice(DeviceRecord) returns (GenericResponse);
+  rpc UpdateDevice(DeviceRecord) returns (GenericResponse);
+  rpc DeleteDevice(DeleteRequest) returns (GenericResponse);
 
   rpc CreateFirmware(FirmwareRecord) returns (GenericResponse);
   rpc UpdateFirmware(FirmwareRecord) returns (GenericResponse);
@@ -34,7 +34,7 @@ message GenericResponse {
 
 message DeleteRequest { int32 id = 1; }
 
-message RecloserRecord {
+message DeviceRecord {
   int32 id = 1;
   string description_key = 2;
 }
@@ -42,7 +42,7 @@ message RecloserRecord {
 message FirmwareRecord {
   int32 id = 1;
   string version = 2;
-  int32 recloser_id = 3;
+  int32 device_model_id = 3;
 }
 
 message ServiceRecord {
@@ -66,14 +66,22 @@ message FirmwareInventory {
   repeated ServiceNode services = 3;
 }
 
-message RecloserInventory {
+message ModelInventory {
+  int32 id = 1;
+  int32 device_model_id = 2; // The ID from DeviceModels table
+  string description_key = 3;
+  repeated Translation translations = 4;
+  repeated FirmwareInventory firmwares = 5;
+}
+
+message DeviceInventory {
   int32 id = 1;
   string description_key = 2;
   repeated Translation translations = 3;
-  repeated FirmwareInventory firmwares = 4;
+  repeated ModelInventory models = 4;
 }
 
-message FullInventoryResponse { repeated RecloserInventory reclosers = 1; }
+message FullInventoryResponse { repeated DeviceInventory devices = 1; }
 
 message ServiceTreeRequest { int32 firmware_id = 1; }
 

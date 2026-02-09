@@ -19,13 +19,24 @@ const std::vector<std::string> INITIALIZATION_SQL = {
     "CASCADE, FOREIGN KEY (language_code) REFERENCES Languages(code) ON DELETE "
     "CASCADE);",
 
-    "CREATE TABLE IF NOT EXISTS Reclosers (id INTEGER PRIMARY KEY "
+    "CREATE TABLE IF NOT EXISTS Devices (id INTEGER PRIMARY KEY "
     "AUTOINCREMENT, description_key TEXT UNIQUE NOT NULL, "
     "FOREIGN KEY (description_key) REFERENCES Descriptions(key));",
 
+    "CREATE TABLE IF NOT EXISTS Models (id INTEGER PRIMARY KEY "
+    "AUTOINCREMENT, description_key TEXT UNIQUE NOT NULL, "
+    "FOREIGN KEY (description_key) REFERENCES Descriptions(key));",
+
+    "CREATE TABLE IF NOT EXISTS DeviceModels (id INTEGER PRIMARY KEY "
+    "AUTOINCREMENT, device_id INTEGER NOT NULL, model_id INTEGER NOT NULL, "
+    "FOREIGN KEY (device_id) REFERENCES Devices(id) ON DELETE CASCADE, "
+    "FOREIGN KEY (model_id) REFERENCES Models(id) ON DELETE CASCADE, "
+    "UNIQUE(device_id, model_id));",
+
     "CREATE TABLE IF NOT EXISTS FirmwareVersions (id INTEGER PRIMARY KEY "
-    "AUTOINCREMENT, version TEXT NOT NULL, recloser_id INTEGER NOT NULL, "
-    "FOREIGN KEY (recloser_id) REFERENCES Reclosers(id) ON DELETE CASCADE);",
+    "AUTOINCREMENT, version TEXT NOT NULL, device_model_id INTEGER NOT NULL, "
+    "FOREIGN KEY (device_model_id) REFERENCES DeviceModels(id) ON DELETE "
+    "CASCADE);",
 
     "CREATE TABLE IF NOT EXISTS Services (id INTEGER PRIMARY KEY "
     "AUTOINCREMENT, description_key TEXT UNIQUE NOT NULL, "
@@ -98,8 +109,5 @@ const std::vector<std::string> INITIALIZATION_SQL = {
     "FOREIGN KEY (limit_id) REFERENCES Limits(id) ON DELETE CASCADE);",
     "INSERT OR IGNORE INTO Migrations (version) VALUES (1);"};
 
-const std::map<int, std::vector<std::string>> MIGRATIONS_SQL = {
-    // Example for version 2:
-    // {2, {"ALTER TABLE ...", "UPDATE ..."}}
-};
+const std::map<int, std::vector<std::string>> MIGRATIONS_SQL = {};
 } // namespace Schema

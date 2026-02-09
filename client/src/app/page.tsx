@@ -6,23 +6,25 @@ import Link from 'next/link';
 export default async function Page({
     searchParams,
 }: {
-    searchParams: { recloserId?: string; firmwareId?: string };
+    searchParams: { deviceId?: string; modelId?: string; firmwareId?: string };
 }) {
-    const recloserId = searchParams.recloserId ? parseInt(searchParams.recloserId) : null;
+    const deviceId = searchParams.deviceId ? parseInt(searchParams.deviceId) : null;
+    const modelId = searchParams.modelId ? parseInt(searchParams.modelId) : null;
     const firmwareId = searchParams.firmwareId ? parseInt(searchParams.firmwareId) : null;
 
-    const reclosers = await getInventory();
+    const devices = await getInventory();
 
     const getTranslation = (translations: any[], lang: string = 'enUs') => {
         const t = translations?.find((t: any) => t.language_code === lang) || translations?.[0];
         return t?.value || 'N/A';
     };
 
-    // If both recloser and firmware are selected, show the configurator
-    if (recloserId && firmwareId) {
+    // If device, model and firmware are selected, show the configurator
+    if (deviceId && modelId && firmwareId) {
         const services = await getServiceTree(firmwareId);
-        const recloser = reclosers.find((r: any) => r.id === recloserId);
-        const firmware = recloser?.firmwares?.find((f: any) => f.id === firmwareId);
+        const device = devices.find((d: any) => d.id === deviceId);
+        const model = device?.models?.find((m: any) => m.id === modelId);
+        const firmware = model?.firmwares?.find((f: any) => f.id === firmwareId);
 
         return (
             <main>
@@ -30,14 +32,11 @@ export default async function Page({
                 <div className="container">
                     <header>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '1.5rem' }}>
-                            <Link href="/" className="back-button" style={{ marginBottom: 0 }}>
+                            <Link href={`/?deviceId=${deviceId}&modelId=${modelId}`} className="back-button" style={{ marginBottom: 0 }}>
                                 <ArrowLeft size={16} />
                             </Link>
                             <div>
-                                <div className="badge" style={{ marginBottom: '0.5rem', display: 'inline-block', borderColor: 'var(--primary)' }}>
-                                    {recloser?.description_key}
-                                </div>
-                                <h1 style={{ fontSize: '1.75rem' }}>{getTranslation(recloser?.translations)} / {firmware?.version}</h1>
+                                <h1 style={{ fontSize: '1.75rem' }}>{getTranslation(device?.translations)} / {getTranslation(model?.translations)} / {firmware?.version}</h1>
                                 <p style={{ color: 'var(--text-muted)', fontSize: '0.875rem', marginTop: '0.25rem' }}>
                                     Configuration Dashboard
                                 </p>
@@ -54,16 +53,17 @@ export default async function Page({
         );
     }
 
-    // If only recloser is selected, show firmware selection
-    if (recloserId) {
-        const recloser = reclosers.find((r: any) => r.id === recloserId);
+    // If device and model are selected, show firmware selection
+    if (deviceId && modelId) {
+        const device = devices.find((d: any) => d.id === deviceId);
+        const model = device?.models?.find((m: any) => m.id === modelId);
         return (
             <main>
                 <div className="gradient-bg" />
                 <div className="container">
                     <header>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '1.5rem' }}>
-                            <Link href="/" className="back-button" style={{ marginBottom: 0 }}>
+                            <Link href={`/?deviceId=${deviceId}`} className="back-button" style={{ marginBottom: 0 }}>
                                 <ArrowLeft size={16} />
                             </Link>
                             <h1>Select Firmware Version</h1>
@@ -71,10 +71,10 @@ export default async function Page({
                     </header>
 
                     <div className="selector-grid">
-                        {recloser?.firmwares?.map((fw: any) => (
+                        {model?.firmwares?.map((fw: any) => (
                             <Link
                                 key={fw.id}
-                                href={`/?recloserId=${recloserId}&firmwareId=${fw.id}`}
+                                href={`/?deviceId=${deviceId}&modelId=${modelId}&firmwareId=${fw.id}`}
                                 className="card selection-card"
                             >
                                 <Cpu size={48} color="var(--primary)" style={{ marginBottom: '1rem' }} />
@@ -93,14 +93,53 @@ export default async function Page({
         );
     }
 
-    // Default: Show recloser selection
+    // If only device is selected, show model selection
+    if (deviceId) {
+        const device = devices.find((d: any) => d.id === deviceId);
+        return (
+            <main>
+                <div className="gradient-bg" />
+                <div className="container">
+                    <header>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '1.5rem' }}>
+                            <Link href="/" className="back-button" style={{ marginBottom: 0 }}>
+                                <ArrowLeft size={16} />
+                            </Link>
+                            <h1>Select Hardware Model</h1>
+                        </div>
+                    </header>
+
+                    <div className="selector-grid">
+                        {device?.models?.map((md: any) => (
+                            <Link
+                                key={md.id}
+                                href={`/?deviceId=${deviceId}&modelId=${md.id}`}
+                                className="card selection-card"
+                            >
+                                <Cpu size={48} color="var(--primary)" style={{ marginBottom: '1rem' }} />
+                                <h3>{getTranslation(md.translations)}</h3>
+                                <p style={{ color: 'var(--text-muted)', fontSize: '0.875rem' }}>
+                                    {md.firmwares?.length || 0} firmware versions
+                                </p>
+                                <div style={{ marginTop: '1.5rem', color: 'var(--accent)' }}>
+                                    Select Model <ChevronRight size={14} />
+                                </div>
+                            </Link>
+                        ))}
+                    </div>
+                </div>
+            </main>
+        );
+    }
+
+    // Default: Show device selection
     return (
         <main>
             <div className="gradient-bg" />
             <div className="container">
                 <header>
                     <div>
-                        <h1>Recloser Management</h1>
+                        <h1>Device Management</h1>
                         <p style={{ color: 'var(--text-muted)', fontSize: '0.875rem' }}>
                             Select a hardware node to begin configuration
                         </p>
@@ -108,26 +147,23 @@ export default async function Page({
                 </header>
 
                 <div className="selector-grid">
-                    {reclosers.map((recloser: any) => (
+                    {devices.map((device: any) => (
                         <Link
-                            key={recloser.id}
-                            href={`/?recloserId=${recloser.id}`}
+                            key={device.id}
+                            href={`/?deviceId=${device.id}`}
                             className="card selection-card"
                         >
                             <Server size={48} color="var(--primary)" style={{ marginBottom: '1rem' }} />
-                            <h3>{getTranslation(recloser.translations)}</h3>
-                            <p style={{ color: 'var(--text-muted)', fontSize: '0.875rem' }}>
-                                {recloser.description_key}
-                            </p>
+                            <h3>{getTranslation(device.translations)}</h3>
                             <div style={{ marginTop: '1.5rem', color: 'var(--accent)' }}>
                                 Open Device <ChevronRight size={14} />
                             </div>
                         </Link>
                     ))}
 
-                    {reclosers.length === 0 && (
+                    {devices.length === 0 && (
                         <div className="card" style={{ gridColumn: '1/-1', padding: '4rem', textAlign: 'center' }}>
-                            <p style={{ color: 'var(--text-muted)' }}>No reclosers detected. Verify C++ server status.</p>
+                            <p style={{ color: 'var(--text-muted)' }}>No devices detected. Verify C++ server status.</p>
                         </div>
                     )}
                 </div>

@@ -1,8 +1,8 @@
 #pragma once
 
-#include "sqlite3.h"
 #include <memory>
 #include <optional>
+#include <sqlite3.h>
 #include <string>
 #include <utility>
 #include <vector>
@@ -13,15 +13,26 @@ struct TranslationRecord {
   std::string value;
 };
 
-struct RecloserRecord {
+struct DeviceRecord {
   int id;
   std::string description_key;
+};
+
+struct ModelRecord {
+  int id;
+  std::string description_key;
+};
+
+struct DeviceModelRecord {
+  int id;
+  int device_id;
+  int model_id;
 };
 
 struct FirmwareVersionRecord {
   int id;
   std::string version;
-  int recloser_id;
+  int device_model_id;
 };
 
 struct ServiceRecord {
@@ -37,10 +48,10 @@ struct FeatureRecord {
   int parent_feature_id;
 };
 
-class RecloserManager {
+class DeviceManager {
 public:
-  RecloserManager(const std::string &dbPath);
-  ~RecloserManager();
+  DeviceManager(const std::string &dbPath);
+  ~DeviceManager();
 
   bool initialize();
   bool migrate();
@@ -48,8 +59,8 @@ public:
   // Translation methods
   bool addLanguage(const std::string &code, const std::string &name);
   bool addDescriptionKey(const std::string &key);
-  bool addTranslation(const std::string &key, const std::string &langCode,
-                      const std::string &value);
+  int addTranslation(const std::string &key, const std::string &langCode,
+                     const std::string &value);
   bool addKeyWithTranslations(
       const std::string &key,
       const std::vector<std::pair<std::string, std::string>> &translations);
@@ -57,20 +68,33 @@ public:
                              const std::string &langCode);
   std::vector<TranslationRecord> getTranslationsForKey(const std::string &key);
 
-  // Recloser methods
-  bool addRecloser(const std::string &key);
-  bool updateRecloser(int id, const std::string &key);
-  bool deleteRecloser(int id);
-  std::vector<RecloserRecord> getAllReclosers();
-  std::optional<RecloserRecord> getRecloserById(int id);
+  // Device methods
+  int addDevice(const std::string &key);
+  bool updateDevice(int id, const std::string &key);
+  bool deleteDevice(int id);
+  std::vector<DeviceRecord> getAllDevices();
+  std::optional<DeviceRecord> getDeviceById(int id);
+
+  // Model methods
+  int addModel(const std::string &key);
+  bool updateModel(int id, const std::string &key);
+  bool deleteModel(int id);
+  std::vector<ModelRecord> getAllModels();
+  std::optional<ModelRecord> getModelById(int id);
+
+  // DeviceModel methods
+  int addDeviceModel(int deviceId, int modelId);
+  bool deleteDeviceModel(int id);
+  std::vector<DeviceModelRecord> getDeviceModelsForDevice(int deviceId);
+  std::optional<DeviceModelRecord> getDeviceModelById(int id);
 
   // Firmware methods
-  bool addFirmwareVersion(const std::string &version, int recloserId);
+  int addFirmwareVersion(const std::string &version, int deviceModelId);
   bool updateFirmwareVersion(int id, const std::string &version,
-                             int recloserId);
+                             int deviceModelId);
   bool deleteFirmwareVersion(int id);
   std::vector<FirmwareVersionRecord>
-  getFirmwareVersionsForRecloser(int recloserId);
+  getFirmwareVersionsForDeviceModel(int deviceModelId);
   std::optional<FirmwareVersionRecord> getFirmwareVersionById(int id);
 
   // Service methods
@@ -97,8 +121,8 @@ public:
 
   // Component methods
   int linkFeatureToComponent(int featureId, const std::string &componentType);
-  bool addComponentLimit(int featureComponentId, const std::string &limitKey,
-                         const std::string &value);
+  int addComponentLimit(int featureComponentId, const std::string &limitKey,
+                        const std::string &value);
 
   struct ComponentLimitRecord {
     std::string key;
