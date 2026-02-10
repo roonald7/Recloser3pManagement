@@ -12,9 +12,13 @@ export async function getInventory() {
     }
 }
 
-export async function getServiceTree(deviceModelFirmwareId: number) {
+export async function getServiceTree(deviceId: number, modelId: number, firmwareId: number) {
     try {
-        const response = await promisifyGrpc<any>(client.GetServiceTree, { device_model_firmware_id: deviceModelFirmwareId });
+        const response = await promisifyGrpc<any>(client.GetServiceTree, {
+            device_id: deviceId,
+            model_id: modelId,
+            firmware_id: firmwareId
+        });
         return response.top_level_services || [];
     } catch (error) {
         console.error('Failed to fetch service tree:', error);

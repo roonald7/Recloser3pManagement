@@ -98,6 +98,7 @@ public:
   bool deleteDeviceModel(int id);
   std::vector<DeviceModelRecord> getDeviceModelsForDevice(int deviceId);
   std::optional<DeviceModelRecord> getDeviceModelById(int id);
+  int getDeviceModelId(int deviceId, int modelId);
 
   // Firmware methods
   int addFirmwareVersion(const std::string &descKey);

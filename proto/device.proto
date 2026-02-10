@@ -121,7 +121,11 @@ message DeviceInventory {
 
 message FullInventoryResponse { repeated DeviceInventory devices = 1; }
 
-message ServiceTreeRequest { int32 device_model_firmware_id = 1; }
+message ServiceTreeRequest {
+  int32 device_id = 1;
+  int32 model_id = 2;
+  int32 firmware_id = 3;
+}
 
 message Feature {
   int32 id = 1;

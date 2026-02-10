@@ -49,7 +49,7 @@ export default async function Page({
 
     // If device, model and firmware are selected, show the configurator
     if (deviceId && modelId && firmwareId) {
-        const services = await getServiceTree(firmwareId);
+        const services = await getServiceTree(deviceId, modelId, firmwareId);
         const device = devices.find((d: any) => d.id === deviceId);
         const model = device?.models?.find((m: any) => m.id === modelId);
         const firmware = model?.firmwares?.find((f: any) => f.id === firmwareId);

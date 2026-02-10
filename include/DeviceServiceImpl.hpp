@@ -1,6 +1,7 @@
 #pragma once
 
 #include "DeviceManager.hpp"
+#include "ServiceHelpers.hpp"
 #include "device.grpc.pb.h"
 #include <grpcpp/grpcpp.h>
 #include <map>
@@ -93,6 +94,7 @@ private:
 
   // Helper to build service tree recursively
   void buildServiceNode(int parentId, int dmfId, ServiceNode *node);
+  void fillServiceNode(const ServiceNodeInfo &info, ServiceNode *node);
 
   // Helper to build internal tree structure for comparison
   void buildInternalTree(int parentId, int dmfId,

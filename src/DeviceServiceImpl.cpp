@@ -13,49 +13,20 @@ DeviceServiceImpl::GetServiceTree(grpc::ServerContext *context,
                                   const ServiceTreeRequest *request,
                                   ServiceTreeResponse *response) {
 
-  int dmfId = request->device_model_firmware_id();
+  int deviceId = request->device_id();
+  int modelId = request->model_id();
+  int firmwareId = request->firmware_id();
 
-  std::cout << "GetServiceTree called for device_model_firmware_id=" << dmfId
+  std::cout << "GetServiceTree called for device=" << deviceId
+            << ", model=" << modelId << ", firmware=" << firmwareId
             << std::endl;
 
-  // Get top-level services (parent_id = 0)
-  auto topLevelServices =
-      manager_->getServicesByParentAndDeviceModelFirmware(0, dmfId);
+  auto tree =
+      ServiceHelpers::getServiceTree(manager_, deviceId, modelId, firmwareId);
 
-  for (const auto &service : topLevelServices) {
+  for (const auto &nodeInfo : tree) {
     ServiceNode *node = response->add_top_level_services();
-    int sdfId = manager_->getServiceDeviceModelFirmwareId(service.id, dmfId);
-    node->set_id(sdfId);
-    node->set_description_key(service.description_key);
-
-    auto translations =
-        manager_->getTranslationsForKey(service.description_key);
-    for (const auto &t : translations) {
-      auto *trans = node->add_translations();
-      trans->set_language_code(t.language_code);
-      trans->set_value(t.value);
-    }
-
-    // Get features for this service-firmware combination
-    if (sdfId > 0) {
-      auto features = manager_->getFeaturesByServiceDeviceModelFirmware(sdfId);
-      for (const auto &feat : features) {
-        Feature *feature = node->add_features();
-        feature->set_id(feat.id);
-        feature->set_feature_key(feat.description_key);
-
-        auto fTranslations =
-            manager_->getTranslationsForKey(feat.description_key);
-        for (const auto &t : fTranslations) {
-          auto *trans = feature->add_translations();
-          trans->set_language_code(t.language_code);
-          trans->set_value(t.value);
-        }
-      }
-    }
-
-    // Recursively build children
-    buildServiceNode(service.id, dmfId, node);
+    fillServiceNode(nodeInfo, node);
   }
 
   return grpc::Status::OK;
@@ -109,6 +80,35 @@ grpc::Status DeviceServiceImpl::CompareServiceTrees(
   response->set_summary(summary.str());
 
   return grpc::Status::OK;
+}
+
+void DeviceServiceImpl::fillServiceNode(const ServiceNodeInfo &info,
+                                        ServiceNode *node) {
+  node->set_id(info.id);
+  node->set_description_key(info.description_key);
+
+  for (const auto &t : info.translations) {
+    auto *trans = node->add_translations();
+    trans->set_language_code(t.language_code);
+    trans->set_value(t.value);
+  }
+
+  for (const auto &feat : info.features) {
+    Feature *feature = node->add_features();
+    feature->set_id(feat.record.id);
+    feature->set_feature_key(feat.record.description_key);
+
+    for (const auto &t : feat.translations) {
+      auto *trans = feature->add_translations();
+      trans->set_language_code(t.language_code);
+      trans->set_value(t.value);
+    }
+  }
+
+  for (const auto &childInfo : info.children) {
+    ServiceNode *childNode = node->add_children();
+    fillServiceNode(childInfo, childNode);
+  }
 }
 
 void DeviceServiceImpl::buildServiceNode(int parentId, int dmfId,

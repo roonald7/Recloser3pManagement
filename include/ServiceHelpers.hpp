@@ -19,7 +19,28 @@ struct DeviceInfo {
   std::vector<ModelInfo> models;
 };
 
+struct FeatureInfo {
+  FeatureRecord record;
+  std::vector<TranslationRecord> translations;
+};
+
+struct ServiceNodeInfo {
+  int id;
+  std::string description_key;
+  std::vector<TranslationRecord> translations;
+  std::vector<FeatureInfo> features;
+  std::vector<ServiceNodeInfo> children;
+};
+
 class ServiceHelpers {
 public:
   static std::vector<DeviceInfo> getDeviceInformation(DeviceManager *manager);
+
+  static std::vector<ServiceNodeInfo> getServiceTree(DeviceManager *manager,
+                                                     int deviceId, int modelId,
+                                                     int firmwareId);
+
+private:
+  static ServiceNodeInfo buildServiceNode(DeviceManager *manager, int serviceId,
+                                          int dmfId);
 };

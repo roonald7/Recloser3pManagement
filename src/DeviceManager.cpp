@@ -434,6 +434,23 @@ std::optional<DeviceModelRecord> DeviceManager::getDeviceModelById(int id) {
   return result;
 }
 
+int DeviceManager::getDeviceModelId(int deviceId, int modelId) {
+  const char *sql =
+      "SELECT id FROM DeviceModels WHERE device_id = ? AND model_id = ?;";
+  sqlite3_stmt *stmt;
+  int id = 0;
+
+  if (sqlite3_prepare_v2(db, sql, -1, &stmt, nullptr) == SQLITE_OK) {
+    sqlite3_bind_int(stmt, 1, deviceId);
+    sqlite3_bind_int(stmt, 2, modelId);
+    if (sqlite3_step(stmt) == SQLITE_ROW) {
+      id = sqlite3_column_int(stmt, 0);
+    }
+    sqlite3_finalize(stmt);
+  }
+  return id;
+}
+
 int DeviceManager::addFirmwareVersion(const std::string &descKey) {
   addDescriptionKey(descKey);
   const char *sql =
