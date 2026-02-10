@@ -60,6 +60,22 @@ DeviceServiceImpl::GetServiceTree(grpc::ServerContext *context,
   return grpc::Status::OK;
 }
 
+grpc::Status DeviceServiceImpl::GetLanguages(grpc::ServerContext *context,
+                                             const LanguagesRequest *request,
+                                             LanguagesResponse *response) {
+
+  std::cout << "GetLanguages called" << std::endl;
+
+  auto languages = manager_->getAllLanguages();
+  for (const auto &lang : languages) {
+    auto *l = response->add_languages();
+    l->set_code(lang.code);
+    l->set_name(lang.name);
+  }
+
+  return grpc::Status::OK;
+}
+
 grpc::Status DeviceServiceImpl::CompareServiceTrees(
     grpc::ServerContext *context, const CompareServiceTreesRequest *request,
     CompareServiceTreesResponse *response) {
@@ -311,6 +327,28 @@ void DeviceServiceImpl::populateFeatureDetail(
     ComponentLimit *limit = detail->add_limits();
     limit->set_key(lim.key);
     limit->set_value(lim.value);
+  }
+
+  for (const auto &t : rec.on_translations) {
+    auto *trans = detail->add_on_label_translations();
+    trans->set_language_code(t.language_code);
+    trans->set_value(t.value);
+  }
+
+  for (const auto &t : rec.off_translations) {
+    auto *trans = detail->add_off_label_translations();
+    trans->set_language_code(t.language_code);
+    trans->set_value(t.value);
+  }
+
+  for (const auto &opt : rec.options) {
+    auto *option = detail->add_options();
+    option->set_value(opt.value);
+    for (const auto &t : opt.translations) {
+      auto *trans = option->add_translations();
+      trans->set_language_code(t.language_code);
+      trans->set_value(t.value);
+    }
   }
 
   for (const auto &child : rec.children) {

@@ -90,6 +90,8 @@ const std::vector<std::string> INITIALIZATION_SQL = {
     "INSERT OR IGNORE INTO Limits (key) VALUES ('STEP');",
     "INSERT OR IGNORE INTO Limits (key) VALUES ('MAX_CHAR');",
     "INSERT OR IGNORE INTO Limits (key) VALUES ('MIN_CHAR');",
+    "INSERT OR IGNORE INTO Limits (key) VALUES ('ON_LABEL');",
+    "INSERT OR IGNORE INTO Limits (key) VALUES ('OFF_LABEL');",
 
     "CREATE TABLE IF NOT EXISTS FeatureComponent ("
     "id INTEGER PRIMARY KEY AUTOINCREMENT,"
@@ -107,7 +109,33 @@ const std::vector<std::string> INITIALIZATION_SQL = {
     "DELETE "
     "CASCADE,"
     "FOREIGN KEY (limit_id) REFERENCES Limits(id) ON DELETE CASCADE);",
-    "INSERT OR IGNORE INTO Migrations (version) VALUES (1);"};
 
-const std::map<int, std::vector<std::string>> MIGRATIONS_SQL = {};
+    "CREATE TABLE IF NOT EXISTS ComponentOptions ("
+    "id INTEGER PRIMARY KEY AUTOINCREMENT,"
+    "feature_component_id INTEGER NOT NULL,"
+    "value TEXT NOT NULL,"
+    "description_key TEXT NOT NULL,"
+    "FOREIGN KEY (feature_component_id) REFERENCES FeatureComponent(id) ON "
+    "DELETE CASCADE,"
+    "FOREIGN KEY (description_key) REFERENCES Descriptions(key) ON DELETE "
+    "CASCADE,"
+    "UNIQUE(feature_component_id, value));",
+
+    "INSERT OR IGNORE INTO Migrations (version) VALUES (3);"};
+
+const std::map<int, std::vector<std::string>> MIGRATIONS_SQL = {
+    {2,
+     {"INSERT OR IGNORE INTO Limits (key) VALUES ('ON_LABEL');",
+      "INSERT OR IGNORE INTO Limits (key) VALUES ('OFF_LABEL');"}},
+    {3,
+     {"CREATE TABLE IF NOT EXISTS ComponentOptions ("
+      "id INTEGER PRIMARY KEY AUTOINCREMENT,"
+      "feature_component_id INTEGER NOT NULL,"
+      "value TEXT NOT NULL,"
+      "description_key TEXT NOT NULL,"
+      "FOREIGN KEY (feature_component_id) REFERENCES FeatureComponent(id) ON "
+      "DELETE CASCADE,"
+      "FOREIGN KEY (description_key) REFERENCES Descriptions(key) ON DELETE "
+      "CASCADE,"
+      "UNIQUE(feature_component_id, value));"}}};
 } // namespace Schema

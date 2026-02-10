@@ -236,12 +236,21 @@ void initialize_recloser_3p(DeviceManager *manager) {
       {{"enUs", "Overvoltage Stage 1 Config"},
        {"ptBr", "Configuração Sobretensão Estágio 1"}});
 
+  manager->addKeyWithTranslations(
+      "ENABLED", {{"enUs", "Enabled"}, {"ptBr", "Habilitado"}});
+  manager->addKeyWithTranslations(
+      "DISABLED", {{"enUs", "Disabled"}, {"ptBr", "Desabilitado"}});
+
   manager->addKeyWithTranslations("ENABLED_AUTOMATIC_RESET",
                                   {{"enUs", "Enabled Automatic Reset"},
                                    {"ptBr", "Habilitar Reset Automático"}});
   manager->addKeyWithTranslations("AUTOMATIC_RESET_TIME",
                                   {{"enUs", "Automatic Reset Time"},
                                    {"ptBr", "Tempo de Reset Automático"}});
+  manager->addKeyWithTranslations(
+      "AUTOMATIC_RECLOSE_ATTEMPTS",
+      {{"enUs", "Automatic Reclose Attempts"},
+       {"ptBr", "Tentativas de Releitura Automática"}});
 
   manager->addKeyWithTranslations(
       "ENABLED_OVERVOLTAGE_STAGE_1",
@@ -251,6 +260,11 @@ void initialize_recloser_3p(DeviceManager *manager) {
       "OVERVOLTAGE_STAGE_1_THRESHOLD",
       {{"enUs", "Overvoltage Stage 1 Threshold"},
        {"ptBr", "Limite de Sobretensão Estágio 1"}});
+
+  manager->addKeyWithTranslations(
+      "ENABLED", {{"enUs", "Enabled"}, {"ptBr", "Habilitado"}});
+  manager->addKeyWithTranslations(
+      "DISABLED", {{"enUs", "Disabled"}, {"ptBr", "Desabilitado"}});
 
   // Add Devices
   int dRecloser3p = manager->addDevice("RECLOSER_3P"); // ID 1
@@ -288,9 +302,14 @@ void initialize_recloser_3p(DeviceManager *manager) {
       manager->addFeature("ENABLED_AUTOMATIC_RESET", sfBasicProtectionConfigV1);
   int fAutomaticResetTimeV1 =
       manager->addFeature("AUTOMATIC_RESET_TIME", sfBasicProtectionConfigV1);
-  manager->linkFeatureToComponent(fEnabledAutomaticResetV1, "Toggle");
+  int fcEnabledAutomaticResetV1 =
+      manager->linkFeatureToComponent(fEnabledAutomaticResetV1, "Toggle");
   int fcAutomaticResetTimeV1 =
       manager->linkFeatureToComponent(fAutomaticResetTimeV1, "Time");
+
+  manager->addComponentLimit(fcEnabledAutomaticResetV1, "ON_LABEL", "ENABLED");
+  manager->addComponentLimit(fcEnabledAutomaticResetV1, "OFF_LABEL",
+                             "DISABLED");
   manager->addComponentLimit(fcAutomaticResetTimeV1, "DEFAULT_VALUE", "5");
 
   // Add Features to Firmware v1 (Link to sfOvervoltageStage1ConfigV1)
@@ -298,9 +317,32 @@ void initialize_recloser_3p(DeviceManager *manager) {
       "ENABLED_OVERVOLTAGE_STAGE_1", sfOvervoltageStage1ConfigV1);
   int fOvervoltageStage1ThresholdV1 = manager->addFeature(
       "OVERVOLTAGE_STAGE_1_THRESHOLD", sfOvervoltageStage1ConfigV1);
-  manager->linkFeatureToComponent(fEnabledOvervoltageStage1V1, "Toggle");
+  int fcEnabledOvervoltageStage1V1 =
+      manager->linkFeatureToComponent(fEnabledOvervoltageStage1V1, "Toggle");
   int fcOvervoltageStage1ThresholdV1 =
       manager->linkFeatureToComponent(fOvervoltageStage1ThresholdV1, "Time");
+
+  manager->addComponentLimit(fcEnabledOvervoltageStage1V1, "ON_LABEL",
+                             "ENABLED");
+  manager->addComponentLimit(fcEnabledOvervoltageStage1V1, "OFF_LABEL",
+                             "DISABLED");
   manager->addComponentLimit(fcOvervoltageStage1ThresholdV1, "DEFAULT_VALUE",
                              "5");
+
+  // Add a ComboBox example: Automatic Reclose Attempts
+  int fRecloseAttempts = manager->addFeature("AUTOMATIC_RECLOSE_ATTEMPTS",
+                                             sfBasicProtectionConfigV1);
+  int fcRecloseAttempts =
+      manager->linkFeatureToComponent(fRecloseAttempts, "ComboBox");
+
+  manager->addKeyWithTranslations(
+      "OPT_1_ATTEMPT", {{"enUs", "1 Attempt"}, {"ptBr", "1 Tentativa"}});
+  manager->addKeyWithTranslations(
+      "OPT_2_ATTEMPTS", {{"enUs", "2 Attempts"}, {"ptBr", "2 Tentativas"}});
+  manager->addKeyWithTranslations(
+      "OPT_3_ATTEMPTS", {{"enUs", "3 Attempts"}, {"ptBr", "3 Tentativas"}});
+
+  manager->addComponentOption(fcRecloseAttempts, "1", "OPT_1_ATTEMPT");
+  manager->addComponentOption(fcRecloseAttempts, "2", "OPT_2_ATTEMPTS");
+  manager->addComponentOption(fcRecloseAttempts, "3", "OPT_3_ATTEMPTS");
 }

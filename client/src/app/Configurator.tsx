@@ -18,9 +18,10 @@ import {
 interface ConfiguratorProps {
     firmwareId: number;
     services: any[];
+    currentLang: string;
 }
 
-export default function Configurator({ firmwareId, services }: ConfiguratorProps) {
+export default function Configurator({ firmwareId, services, currentLang }: ConfiguratorProps) {
     const [selectedServiceId, setSelectedServiceId] = useState<number | null>(
         services.length > 0 ? services[0].id : null
     );
@@ -40,7 +41,7 @@ export default function Configurator({ firmwareId, services }: ConfiguratorProps
         setLoading(false);
     }
 
-    const getTranslation = (translations: any[], lang: string = 'enUs') => {
+    const getTranslation = (translations: any[], lang: string = currentLang) => {
         const t = translations?.find((t: any) => t.language_code === lang) || translations?.[0];
         return t?.value || 'N/A';
     };
@@ -75,7 +76,11 @@ export default function Configurator({ firmwareId, services }: ConfiguratorProps
                             onChange={(e) => setValue(e.target.value)}
                         >
                             <option value="">Select Option...</option>
-                            {/* Options would normally come from another table or metadata */}
+                            {feature.options?.map((opt: any) => (
+                                <option key={opt.value} value={opt.value}>
+                                    {getTranslation(opt.translations) || opt.value}
+                                </option>
+                            ))}
                         </select>
                     );
                 case 'INTEGER':
@@ -141,13 +146,19 @@ export default function Configurator({ firmwareId, services }: ConfiguratorProps
                     return (
                         <div
                             onClick={() => setIsToggled(!isToggled)}
-                            style={{ cursor: 'pointer', transition: 'all 0.2s' }}
+                            style={{ cursor: 'pointer', transition: 'all 0.2s', display: 'flex', alignItems: 'center', gap: '0.75rem' }}
                         >
                             {isToggled ? (
                                 <ToggleRight size={32} color="var(--primary)" />
                             ) : (
                                 <ToggleLeft size={32} color="var(--text-muted)" />
                             )}
+                            <span style={{ fontSize: '0.875rem', fontWeight: 500 }}>
+                                {isToggled
+                                    ? getTranslation(feature.on_label_translations) || 'Enabled'
+                                    : getTranslation(feature.off_label_translations) || 'Disabled'
+                                }
+                            </span>
                         </div>
                     );
                 case 'CHECKBOX':

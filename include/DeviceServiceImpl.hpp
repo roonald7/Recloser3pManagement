@@ -79,6 +79,10 @@ public:
                              const DeleteRequest *request,
                              GenericResponse *response) override;
 
+  grpc::Status GetLanguages(grpc::ServerContext *context,
+                            const LanguagesRequest *request,
+                            LanguagesResponse *response) override;
+
 private:
   DeviceManager *manager_;
 

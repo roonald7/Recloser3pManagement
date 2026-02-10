@@ -97,6 +97,23 @@ bool DeviceManager::addLanguage(const std::string &code,
   return rc == SQLITE_DONE;
 }
 
+std::vector<LanguageRecord> DeviceManager::getAllLanguages() {
+  std::vector<LanguageRecord> languages;
+  const char *sql = "SELECT code, name FROM Languages;";
+  sqlite3_stmt *stmt;
+
+  if (sqlite3_prepare_v2(db, sql, -1, &stmt, nullptr) == SQLITE_OK) {
+    while (sqlite3_step(stmt) == SQLITE_ROW) {
+      LanguageRecord lang;
+      lang.code = reinterpret_cast<const char *>(sqlite3_column_text(stmt, 0));
+      lang.name = reinterpret_cast<const char *>(sqlite3_column_text(stmt, 1));
+      languages.push_back(lang);
+    }
+    sqlite3_finalize(stmt);
+  }
+  return languages;
+}
+
 bool DeviceManager::addDescriptionKey(const std::string &key) {
   const char *sql = "INSERT OR IGNORE INTO Descriptions (key) VALUES (?);";
   sqlite3_stmt *stmt;
@@ -906,6 +923,7 @@ DeviceManager::getScreenLayout(int serviceFirmwareId) {
             reinterpret_cast<const char *>(sqlite3_column_text(layoutStmt, 2));
 
         int fcId = sqlite3_column_int(layoutStmt, 3);
+        rec.feature_component_id = fcId;
 
         // Get limits for this component
         const char *limitSql = "SELECT l.key, fcl.value "
@@ -924,9 +942,18 @@ DeviceManager::getScreenLayout(int serviceFirmwareId) {
             lim.value = reinterpret_cast<const char *>(
                 sqlite3_column_text(limitStmt, 1));
             rec.limits.push_back(lim);
+
+            if (lim.key == "ON_LABEL") {
+              rec.on_translations = getTranslationsForKey(lim.value);
+            } else if (lim.key == "OFF_LABEL") {
+              rec.off_translations = getTranslationsForKey(lim.value);
+            }
           }
         }
         sqlite3_finalize(limitStmt);
+
+        // Get options for this component
+        rec.options = getComponentOptions(fcId);
       }
       featureMap[rec.feature_id] = rec;
     }
@@ -1008,4 +1035,50 @@ bool DeviceManager::populateSampleLayoutData() {
   }
 
   return true;
+}
+
+int DeviceManager::addComponentOption(int featureComponentId,
+                                      const std::string &value,
+                                      const std::string &descKey) {
+  addDescriptionKey(descKey);
+  const char *sql =
+      "INSERT INTO ComponentOptions (feature_component_id, value, "
+      "description_key) VALUES (?, ?, ?);";
+  sqlite3_stmt *stmt;
+  if (sqlite3_prepare_v2(db, sql, -1, &stmt, nullptr) != SQLITE_OK)
+    return 0;
+
+  sqlite3_bind_int(stmt, 1, featureComponentId);
+  sqlite3_bind_text(stmt, 2, value.c_str(), -1, SQLITE_TRANSIENT);
+  sqlite3_bind_text(stmt, 3, descKey.c_str(), -1, SQLITE_TRANSIENT);
+
+  int rc = sqlite3_step(stmt);
+  int id = 0;
+  if (rc == SQLITE_DONE) {
+    id = static_cast<int>(sqlite3_last_insert_rowid(db));
+  }
+  sqlite3_finalize(stmt);
+  return id;
+}
+
+std::vector<DeviceManager::ComponentOptionRecord>
+DeviceManager::getComponentOptions(int featureComponentId) {
+  std::vector<ComponentOptionRecord> options;
+  const char *sql = "SELECT value, description_key FROM ComponentOptions WHERE "
+                    "feature_component_id = ?;";
+  sqlite3_stmt *stmt;
+
+  if (sqlite3_prepare_v2(db, sql, -1, &stmt, nullptr) == SQLITE_OK) {
+    sqlite3_bind_int(stmt, 1, featureComponentId);
+    while (sqlite3_step(stmt) == SQLITE_ROW) {
+      ComponentOptionRecord opt;
+      opt.value = reinterpret_cast<const char *>(sqlite3_column_text(stmt, 0));
+      opt.description_key =
+          reinterpret_cast<const char *>(sqlite3_column_text(stmt, 1));
+      opt.translations = getTranslationsForKey(opt.description_key);
+      options.push_back(opt);
+    }
+    sqlite3_finalize(stmt);
+  }
+  return options;
 }

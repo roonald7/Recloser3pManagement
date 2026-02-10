@@ -7,6 +7,11 @@
 #include <utility>
 #include <vector>
 
+struct LanguageRecord {
+  std::string code;
+  std::string name;
+};
+
 struct TranslationRecord {
   std::string description_key;
   std::string language_code;
@@ -67,6 +72,7 @@ public:
   std::string getTranslation(const std::string &key,
                              const std::string &langCode);
   std::vector<TranslationRecord> getTranslationsForKey(const std::string &key);
+  std::vector<LanguageRecord> getAllLanguages();
 
   // Device methods
   int addDevice(const std::string &key);
@@ -129,13 +135,23 @@ public:
     std::string value;
   };
 
+  struct ComponentOptionRecord {
+    std::string value;
+    std::string description_key;
+    std::vector<TranslationRecord> translations;
+  };
+
   struct FeatureComponentRecord {
     int feature_id;
+    int feature_component_id; // Added to help linking options
     int parent_feature_id;
     std::string feature_key;
     std::vector<TranslationRecord> translations;
     std::string component_type;
     std::vector<ComponentLimitRecord> limits;
+    std::vector<ComponentOptionRecord> options;
+    std::vector<TranslationRecord> on_translations;
+    std::vector<TranslationRecord> off_translations;
     std::vector<FeatureComponentRecord> children;
   };
 
@@ -148,6 +164,11 @@ public:
   };
 
   std::optional<ServiceLayoutRecord> getScreenLayout(int serviceFirmwareId);
+
+  int addComponentOption(int featureComponentId, const std::string &value,
+                         const std::string &descKey);
+  std::vector<ComponentOptionRecord>
+  getComponentOptions(int featureComponentId);
 
   // Population method
   bool populateSampleLayoutData();

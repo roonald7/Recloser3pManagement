@@ -1,4 +1,4 @@
-import { getInventory, getServiceTree } from './actions';
+import { getInventory, getServiceTree, getLanguages } from './actions';
 import Configurator from './Configurator';
 import { Cpu, ArrowLeft, ChevronRight, Server } from 'lucide-react';
 import Link from 'next/link';
@@ -6,18 +6,46 @@ import Link from 'next/link';
 export default async function Page({
     searchParams,
 }: {
-    searchParams: { deviceId?: string; modelId?: string; firmwareId?: string };
+    searchParams: { deviceId?: string; modelId?: string; firmwareId?: string; lang?: string };
 }) {
     const deviceId = searchParams.deviceId ? parseInt(searchParams.deviceId) : null;
     const modelId = searchParams.modelId ? parseInt(searchParams.modelId) : null;
     const firmwareId = searchParams.firmwareId ? parseInt(searchParams.firmwareId) : null;
+    const currentLang = searchParams.lang || 'enUs';
 
-    const devices = await getInventory();
+    const [devices, languages] = await Promise.all([
+        getInventory(),
+        getLanguages()
+    ]);
 
-    const getTranslation = (translations: any[], lang: string = 'enUs') => {
+    const getTranslation = (translations: any[], lang: string = currentLang) => {
         const t = translations?.find((t: any) => t.language_code === lang) || translations?.[0];
         return t?.value || 'N/A';
     };
+
+    const LanguageSwitcher = () => (
+        <div style={{ display: 'flex', gap: '0.5rem' }}>
+            {languages.map((lang: any) => (
+                <Link
+                    key={lang.code}
+                    href={{
+                        pathname: '/',
+                        query: { ...searchParams, lang: lang.code }
+                    }}
+                    className={`badge`}
+                    style={{
+                        cursor: 'pointer',
+                        background: currentLang === lang.code ? 'var(--primary)' : 'transparent',
+                        color: currentLang === lang.code ? 'white' : 'var(--text-muted)',
+                        borderColor: currentLang === lang.code ? 'var(--primary)' : 'var(--glass-border)',
+                        transition: 'all 0.2s'
+                    }}
+                >
+                    {lang.name}
+                </Link>
+            ))}
+        </div>
+    );
 
     // If device, model and firmware are selected, show the configurator
     if (deviceId && modelId && firmwareId) {
@@ -31,8 +59,8 @@ export default async function Page({
                 <div className="gradient-bg" />
                 <div className="container">
                     <header>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '1.5rem' }}>
-                            <Link href={`/?deviceId=${deviceId}&modelId=${modelId}`} className="back-button" style={{ marginBottom: 0 }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '1.5rem', flex: 1 }}>
+                            <Link href={{ pathname: '/', query: { deviceId, modelId, lang: currentLang } }} className="back-button" style={{ marginBottom: 0 }}>
                                 <ArrowLeft size={16} />
                             </Link>
                             <div>
@@ -42,12 +70,15 @@ export default async function Page({
                                 </p>
                             </div>
                         </div>
-                        <div className="badge" style={{ borderColor: 'var(--primary)', color: 'var(--primary)' }}>
-                            Online
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '1.5rem' }}>
+                            <LanguageSwitcher />
+                            <div className="badge" style={{ borderColor: 'var(--primary)', color: 'var(--primary)' }}>
+                                Online
+                            </div>
                         </div>
                     </header>
 
-                    <Configurator firmwareId={firmwareId} services={services} />
+                    <Configurator firmwareId={firmwareId} services={services} currentLang={currentLang} />
                 </div>
             </main>
         );
@@ -62,19 +93,20 @@ export default async function Page({
                 <div className="gradient-bg" />
                 <div className="container">
                     <header>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '1.5rem' }}>
-                            <Link href={`/?deviceId=${deviceId}`} className="back-button" style={{ marginBottom: 0 }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '1.5rem', flex: 1 }}>
+                            <Link href={{ pathname: '/', query: { deviceId, lang: currentLang } }} className="back-button" style={{ marginBottom: 0 }}>
                                 <ArrowLeft size={16} />
                             </Link>
                             <h1>Select Firmware Version</h1>
                         </div>
+                        <LanguageSwitcher />
                     </header>
 
                     <div className="selector-grid">
                         {model?.firmwares?.map((fw: any) => (
                             <Link
                                 key={fw.id}
-                                href={`/?deviceId=${deviceId}&modelId=${modelId}&firmwareId=${fw.id}`}
+                                href={{ pathname: '/', query: { deviceId, modelId, firmwareId: fw.id, lang: currentLang } }}
                                 className="card selection-card"
                             >
                                 <Cpu size={48} color="var(--primary)" style={{ marginBottom: '1rem' }} />
@@ -101,19 +133,20 @@ export default async function Page({
                 <div className="gradient-bg" />
                 <div className="container">
                     <header>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '1.5rem' }}>
-                            <Link href="/" className="back-button" style={{ marginBottom: 0 }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '1.5rem', flex: 1 }}>
+                            <Link href={{ pathname: '/', query: { lang: currentLang } }} className="back-button" style={{ marginBottom: 0 }}>
                                 <ArrowLeft size={16} />
                             </Link>
                             <h1>Select Hardware Model</h1>
                         </div>
+                        <LanguageSwitcher />
                     </header>
 
                     <div className="selector-grid">
                         {device?.models?.map((md: any) => (
                             <Link
                                 key={md.id}
-                                href={`/?deviceId=${deviceId}&modelId=${md.id}`}
+                                href={{ pathname: '/', query: { deviceId, modelId: md.id, lang: currentLang } }}
                                 className="card selection-card"
                             >
                                 <Cpu size={48} color="var(--primary)" style={{ marginBottom: '1rem' }} />
@@ -138,19 +171,20 @@ export default async function Page({
             <div className="gradient-bg" />
             <div className="container">
                 <header>
-                    <div>
+                    <div style={{ flex: 1 }}>
                         <h1>Device Management</h1>
                         <p style={{ color: 'var(--text-muted)', fontSize: '0.875rem' }}>
                             Select a hardware node to begin configuration
                         </p>
                     </div>
+                    <LanguageSwitcher />
                 </header>
 
                 <div className="selector-grid">
                     {devices.map((device: any) => (
                         <Link
                             key={device.id}
-                            href={`/?deviceId=${device.id}`}
+                            href={{ pathname: '/', query: { deviceId: device.id, lang: currentLang } }}
                             className="card selection-card"
                         >
                             <Server size={48} color="var(--primary)" style={{ marginBottom: '1rem' }} />

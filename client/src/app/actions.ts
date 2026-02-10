@@ -31,3 +31,13 @@ export async function getScreenLayout(serviceFirmwareId: number) {
         return null;
     }
 }
+
+export async function getLanguages() {
+    try {
+        const response = await promisifyGrpc<any>(client.GetLanguages, {});
+        return response.languages || [];
+    } catch (error) {
+        console.error('Failed to fetch languages:', error);
+        return [];
+    }
+}
