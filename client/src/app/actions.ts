@@ -12,9 +12,9 @@ export async function getInventory() {
     }
 }
 
-export async function getServiceTree(firmwareId: number) {
+export async function getServiceTree(deviceModelFirmwareId: number) {
     try {
-        const response = await promisifyGrpc<any>(client.GetServiceTree, { firmware_id: firmwareId });
+        const response = await promisifyGrpc<any>(client.GetServiceTree, { device_model_firmware_id: deviceModelFirmwareId });
         return response.top_level_services || [];
     } catch (error) {
         console.error('Failed to fetch service tree:', error);
@@ -22,9 +22,9 @@ export async function getServiceTree(firmwareId: number) {
     }
 }
 
-export async function getScreenLayout(serviceFirmwareId: number) {
+export async function getScreenLayout(serviceDeviceModelFirmwareId: number) {
     try {
-        const response = await promisifyGrpc<any>(client.GetScreenLayout, { service_id: serviceFirmwareId });
+        const response = await promisifyGrpc<any>(client.GetScreenLayout, { service_device_model_firmware_id: serviceDeviceModelFirmwareId });
         return response.service_layout || null;
     } catch (error) {
         console.error('Failed to fetch screen layout:', error);

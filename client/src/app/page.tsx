@@ -64,7 +64,7 @@ export default async function Page({
                                 <ArrowLeft size={16} />
                             </Link>
                             <div>
-                                <h1 style={{ fontSize: '1.75rem' }}>{getTranslation(device?.translations)} / {getTranslation(model?.translations)} / {firmware?.version}</h1>
+                                <h1 style={{ fontSize: '1.75rem' }}>{getTranslation(device?.translations)} / {getTranslation(model?.translations)} / {getTranslation(firmware?.translations)}</h1>
                                 <p style={{ color: 'var(--text-muted)', fontSize: '0.875rem', marginTop: '0.25rem' }}>
                                     Configuration Dashboard
                                 </p>
@@ -110,7 +110,7 @@ export default async function Page({
                                 className="card selection-card"
                             >
                                 <Cpu size={48} color="var(--primary)" style={{ marginBottom: '1rem' }} />
-                                <h3>Version {fw.version}</h3>
+                                <h3>Version {getTranslation(fw.translations)}</h3>
                                 <p style={{ color: 'var(--text-muted)', fontSize: '0.875rem' }}>
                                     {fw.services?.length || 0} top-level services
                                 </p>

@@ -83,14 +83,19 @@ public:
                             const LanguagesRequest *request,
                             LanguagesResponse *response) override;
 
+  grpc::Status
+  GetDeviceInformation(grpc::ServerContext *context,
+                       const DeviceInformationRequest *request,
+                       DeviceInformationResponse *response) override;
+
 private:
   DeviceManager *manager_;
 
   // Helper to build service tree recursively
-  void buildServiceNode(int parentId, int firmwareId, ServiceNode *node);
+  void buildServiceNode(int parentId, int dmfId, ServiceNode *node);
 
   // Helper to build internal tree structure for comparison
-  void buildInternalTree(int parentId, int firmwareId,
+  void buildInternalTree(int parentId, int dmfId,
                          const std::string &languageCode,
                          std::map<std::string, ServiceTreeNode> &tree);
 

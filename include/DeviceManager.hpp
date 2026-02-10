@@ -36,8 +36,13 @@ struct DeviceModelRecord {
 
 struct FirmwareVersionRecord {
   int id;
-  std::string version;
+  std::string description_key;
+};
+
+struct DeviceModelFirmwareRecord {
+  int id;
   int device_model_id;
+  int firmware_id;
 };
 
 struct ServiceRecord {
@@ -49,7 +54,7 @@ struct ServiceRecord {
 struct FeatureRecord {
   int id;
   std::string description_key;
-  int service_firmware_id;
+  int service_device_model_firmware_id;
   int parent_feature_id;
 };
 
@@ -95,34 +100,37 @@ public:
   std::optional<DeviceModelRecord> getDeviceModelById(int id);
 
   // Firmware methods
-  int addFirmwareVersion(const std::string &version, int deviceModelId);
-  bool updateFirmwareVersion(int id, const std::string &version,
-                             int deviceModelId);
+  int addFirmwareVersion(const std::string &descKey);
+  int linkFirmwareToModel(int firmwareId, int deviceModelId);
   bool deleteFirmwareVersion(int id);
   std::vector<FirmwareVersionRecord>
   getFirmwareVersionsForDeviceModel(int deviceModelId);
   std::optional<FirmwareVersionRecord> getFirmwareVersionById(int id);
+  int getDeviceModelFirmwareId(int deviceModelId, int firmwareId);
 
   // Service methods
   int addService(const std::string &descKey, int parentId = 0);
   bool updateService(int id, const std::string &descKey, int parentId = 0);
   bool deleteService(int id);
-  int linkServiceToFirmware(int serviceId, int firmwareId);
-  bool unlinkServiceFromFirmware(int serviceId, int firmwareId);
-  int getServiceFirmwareId(int serviceId, int firmwareId);
+  int linkServiceToDeviceModelFirmware(int serviceId,
+                                       int deviceModelFirmwareId);
+  bool unlinkServiceFromDeviceModelFirmware(int serviceId,
+                                            int deviceModelFirmwareId);
+  int getServiceDeviceModelFirmwareId(int serviceId, int deviceModelFirmwareId);
   std::vector<ServiceRecord> getAllServices();
-  std::vector<ServiceRecord> getServicesByParentAndFirmware(int parentId,
-                                                            int firmwareId);
+  std::vector<ServiceRecord>
+  getServicesByParentAndDeviceModelFirmware(int parentId,
+                                            int deviceModelFirmwareId);
   std::optional<ServiceRecord> getServiceById(int id);
 
   // Feature methods
-  int addFeature(const std::string &descKey, int serviceFirmwareId,
+  int addFeature(const std::string &descKey, int serviceDeviceModelFirmwareId,
                  int parentFeatureId = 0);
-  bool updateFeature(int id, const std::string &descKey, int serviceFirmwareId,
-                     int parentFeatureId = 0);
+  bool updateFeature(int id, const std::string &descKey,
+                     int serviceDeviceModelFirmwareId, int parentFeatureId = 0);
   bool deleteFeature(int id);
   std::vector<FeatureRecord>
-  getFeaturesByServiceFirmware(int serviceFirmwareId);
+  getFeaturesByServiceDeviceModelFirmware(int serviceDeviceModelFirmwareId);
   std::optional<FeatureRecord> getFeatureById(int id);
 
   // Component methods
@@ -163,7 +171,8 @@ public:
     std::vector<ServiceLayoutRecord> children;
   };
 
-  std::optional<ServiceLayoutRecord> getScreenLayout(int serviceFirmwareId);
+  std::optional<ServiceLayoutRecord>
+  getScreenLayout(int serviceDeviceModelFirmwareId);
 
   int addComponentOption(int featureComponentId, const std::string &value,
                          const std::string &descKey);

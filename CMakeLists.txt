@@ -13,12 +13,15 @@ set(SOURCES
     src/main.cpp
     src/DeviceManager.cpp
     src/DeviceServiceImpl.cpp
+    src/ServiceHelpers.cpp
 )
 
 # Header files
 set(HEADERS
     include/DeviceManager.hpp
     include/DeviceServiceImpl.hpp
+    include/ServiceHelpers.hpp
+    include/UIComponentManager.hpp
 )
 
 # SQLite Sources
@@ -51,8 +54,6 @@ add_custom_command(
          "${PROTO_PATH}"
     DEPENDS "${PROTO_PATH}"
 )
-
-
 
 # Create the executable
 add_executable(${PROJECT_NAME} 

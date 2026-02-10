@@ -434,41 +434,74 @@ std::optional<DeviceModelRecord> DeviceManager::getDeviceModelById(int id) {
   return result;
 }
 
-int DeviceManager::addFirmwareVersion(const std::string &version,
-                                      int deviceModelId) {
+int DeviceManager::addFirmwareVersion(const std::string &descKey) {
+  addDescriptionKey(descKey);
   const char *sql =
-      "INSERT INTO FirmwareVersions (version, device_model_id) VALUES (?, ?);";
+      "INSERT INTO FirmwareVersions (description_key) VALUES (?);";
   sqlite3_stmt *stmt;
   if (sqlite3_prepare_v2(db, sql, -1, &stmt, nullptr) != SQLITE_OK)
     return 0;
 
-  sqlite3_bind_text(stmt, 1, version.c_str(), -1, SQLITE_TRANSIENT);
-  sqlite3_bind_int(stmt, 2, deviceModelId);
+  sqlite3_bind_text(stmt, 1, descKey.c_str(), -1, SQLITE_TRANSIENT);
 
   int rc = sqlite3_step(stmt);
   sqlite3_finalize(stmt);
 
   if (rc == SQLITE_DONE) {
     return static_cast<int>(sqlite3_last_insert_rowid(db));
+  } else {
+    // If it exists, find the ID
+    const char *findSql =
+        "SELECT id FROM FirmwareVersions WHERE description_key = ?;";
+    if (sqlite3_prepare_v2(db, findSql, -1, &stmt, nullptr) == SQLITE_OK) {
+      sqlite3_bind_text(stmt, 1, descKey.c_str(), -1, SQLITE_TRANSIENT);
+      if (sqlite3_step(stmt) == SQLITE_ROW) {
+        int id = sqlite3_column_int(stmt, 0);
+        sqlite3_finalize(stmt);
+        return id;
+      }
+      sqlite3_finalize(stmt);
+    }
   }
   return 0;
 }
 
-bool DeviceManager::updateFirmwareVersion(int id, const std::string &version,
-                                          int deviceModelId) {
-  const char *sql = "UPDATE FirmwareVersions SET version = ?, device_model_id "
-                    "= ? WHERE id = ?;";
+int DeviceManager::linkFirmwareToModel(int firmwareId, int deviceModelId) {
+  const char *sql =
+      "INSERT OR IGNORE INTO DeviceModelFirmware (device_model_id, "
+      "firmware_id) VALUES (?, ?);";
   sqlite3_stmt *stmt;
   if (sqlite3_prepare_v2(db, sql, -1, &stmt, nullptr) != SQLITE_OK)
-    return false;
+    return 0;
 
-  sqlite3_bind_text(stmt, 1, version.c_str(), -1, SQLITE_TRANSIENT);
-  sqlite3_bind_int(stmt, 2, deviceModelId);
-  sqlite3_bind_int(stmt, 3, id);
+  sqlite3_bind_int(stmt, 1, deviceModelId);
+  sqlite3_bind_int(stmt, 2, firmwareId);
 
   int rc = sqlite3_step(stmt);
   sqlite3_finalize(stmt);
-  return rc == SQLITE_DONE;
+
+  if (rc == SQLITE_DONE) {
+    return static_cast<int>(sqlite3_last_insert_rowid(db));
+  } else {
+    return getDeviceModelFirmwareId(deviceModelId, firmwareId);
+  }
+}
+
+int DeviceManager::getDeviceModelFirmwareId(int deviceModelId, int firmwareId) {
+  const char *sql =
+      "SELECT id FROM DeviceModelFirmware WHERE device_model_id = "
+      "? AND firmware_id = ?;";
+  sqlite3_stmt *stmt;
+  int id = 0;
+  if (sqlite3_prepare_v2(db, sql, -1, &stmt, nullptr) == SQLITE_OK) {
+    sqlite3_bind_int(stmt, 1, deviceModelId);
+    sqlite3_bind_int(stmt, 2, firmwareId);
+    if (sqlite3_step(stmt) == SQLITE_ROW) {
+      id = sqlite3_column_int(stmt, 0);
+    }
+  }
+  sqlite3_finalize(stmt);
+  return id;
 }
 
 bool DeviceManager::deleteFirmwareVersion(int id) {
@@ -486,8 +519,9 @@ bool DeviceManager::deleteFirmwareVersion(int id) {
 std::vector<FirmwareVersionRecord>
 DeviceManager::getFirmwareVersionsForDeviceModel(int deviceModelId) {
   std::vector<FirmwareVersionRecord> records;
-  const char *sql = "SELECT id, version, device_model_id FROM FirmwareVersions "
-                    "WHERE device_model_id = ?;";
+  const char *sql = "SELECT f.id, f.description_key FROM FirmwareVersions f "
+                    "JOIN DeviceModelFirmware dmf ON f.id = dmf.firmware_id "
+                    "WHERE dmf.device_model_id = ?;";
   sqlite3_stmt *stmt;
 
   if (sqlite3_prepare_v2(db, sql, -1, &stmt, nullptr) == SQLITE_OK) {
@@ -495,9 +529,8 @@ DeviceManager::getFirmwareVersionsForDeviceModel(int deviceModelId) {
     while (sqlite3_step(stmt) == SQLITE_ROW) {
       FirmwareVersionRecord rec;
       rec.id = sqlite3_column_int(stmt, 0);
-      rec.version =
+      rec.description_key =
           reinterpret_cast<const char *>(sqlite3_column_text(stmt, 1));
-      rec.device_model_id = sqlite3_column_int(stmt, 2);
       records.push_back(rec);
     }
   }
@@ -508,7 +541,7 @@ DeviceManager::getFirmwareVersionsForDeviceModel(int deviceModelId) {
 std::optional<FirmwareVersionRecord>
 DeviceManager::getFirmwareVersionById(int id) {
   const char *sql =
-      "SELECT id, version, device_model_id FROM FirmwareVersions WHERE id = ?;";
+      "SELECT id, description_key FROM FirmwareVersions WHERE id = ?;";
   sqlite3_stmt *stmt;
   std::optional<FirmwareVersionRecord> result = std::nullopt;
 
@@ -517,9 +550,8 @@ DeviceManager::getFirmwareVersionById(int id) {
     if (sqlite3_step(stmt) == SQLITE_ROW) {
       FirmwareVersionRecord rec;
       rec.id = sqlite3_column_int(stmt, 0);
-      rec.version =
+      rec.description_key =
           reinterpret_cast<const char *>(sqlite3_column_text(stmt, 1));
-      rec.device_model_id = sqlite3_column_int(stmt, 2);
       result = rec;
     }
   }
@@ -571,15 +603,17 @@ bool DeviceManager::updateService(int id, const std::string &descKey,
   return rc == SQLITE_DONE;
 }
 
-int DeviceManager::linkServiceToFirmware(int serviceId, int firmwareId) {
-  const char *sql = "INSERT OR IGNORE INTO ServiceFirmware (service_id, "
-                    "firmware_id) VALUES (?, ?);";
+int DeviceManager::linkServiceToDeviceModelFirmware(int serviceId,
+                                                    int deviceModelFirmwareId) {
+  const char *sql =
+      "INSERT OR IGNORE INTO ServiceDeviceModelFirmware (service_id, "
+      "device_model_firmware_id) VALUES (?, ?);";
   sqlite3_stmt *stmt;
   if (sqlite3_prepare_v2(db, sql, -1, &stmt, nullptr) != SQLITE_OK)
     return 0;
 
   sqlite3_bind_int(stmt, 1, serviceId);
-  sqlite3_bind_int(stmt, 2, firmwareId);
+  sqlite3_bind_int(stmt, 2, deviceModelFirmwareId);
 
   int rc = sqlite3_step(stmt);
   sqlite3_finalize(stmt);
@@ -588,19 +622,21 @@ int DeviceManager::linkServiceToFirmware(int serviceId, int firmwareId) {
     return static_cast<int>(sqlite3_last_insert_rowid(db));
   } else {
     // If it exists, find the ID
-    return getServiceFirmwareId(serviceId, firmwareId);
+    return getServiceDeviceModelFirmwareId(serviceId, deviceModelFirmwareId);
   }
 }
 
-int DeviceManager::getServiceFirmwareId(int serviceId, int firmwareId) {
-  const char *sql = "SELECT id FROM ServiceFirmware WHERE service_id = ? AND "
-                    "firmware_id = ?;";
+int DeviceManager::getServiceDeviceModelFirmwareId(int serviceId,
+                                                   int deviceModelFirmwareId) {
+  const char *sql =
+      "SELECT id FROM ServiceDeviceModelFirmware WHERE service_id = ? AND "
+      "device_model_firmware_id = ?;";
   sqlite3_stmt *stmt;
   int id = 0;
 
   if (sqlite3_prepare_v2(db, sql, -1, &stmt, nullptr) == SQLITE_OK) {
     sqlite3_bind_int(stmt, 1, serviceId);
-    sqlite3_bind_int(stmt, 2, firmwareId);
+    sqlite3_bind_int(stmt, 2, deviceModelFirmwareId);
 
     if (sqlite3_step(stmt) == SQLITE_ROW) {
       id = sqlite3_column_int(stmt, 0);
@@ -610,15 +646,17 @@ int DeviceManager::getServiceFirmwareId(int serviceId, int firmwareId) {
   return id;
 }
 
-bool DeviceManager::unlinkServiceFromFirmware(int serviceId, int firmwareId) {
-  const char *sql = "DELETE FROM ServiceFirmware WHERE service_id = ? "
-                    "AND firmware_id = ?;";
+bool DeviceManager::unlinkServiceFromDeviceModelFirmware(
+    int serviceId, int deviceModelFirmwareId) {
+  const char *sql =
+      "DELETE FROM ServiceDeviceModelFirmware WHERE service_id = ? "
+      "AND device_model_firmware_id = ?;";
   sqlite3_stmt *stmt;
   if (sqlite3_prepare_v2(db, sql, -1, &stmt, nullptr) != SQLITE_OK)
     return false;
 
   sqlite3_bind_int(stmt, 1, serviceId);
-  sqlite3_bind_int(stmt, 2, firmwareId);
+  sqlite3_bind_int(stmt, 2, deviceModelFirmwareId);
 
   int rc = sqlite3_step(stmt);
   sqlite3_finalize(stmt);
@@ -658,19 +696,20 @@ std::vector<ServiceRecord> DeviceManager::getAllServices() {
 }
 
 std::vector<ServiceRecord>
-DeviceManager::getServicesByParentAndFirmware(int parentId, int firmwareId) {
+DeviceManager::getServicesByParentAndDeviceModelFirmware(
+    int parentId, int deviceModelFirmwareId) {
   std::vector<ServiceRecord> records;
   const char *sql;
   if (parentId > 0) {
     sql = "SELECT s.id, s.description_key, s.parent_id "
           "FROM Services s "
-          "JOIN ServiceFirmware sf ON s.id = sf.service_id "
-          "WHERE s.parent_id = ? AND sf.firmware_id = ?;";
+          "JOIN ServiceDeviceModelFirmware sdf ON s.id = sdf.service_id "
+          "WHERE s.parent_id = ? AND sdf.device_model_firmware_id = ?;";
   } else {
     sql = "SELECT s.id, s.description_key, s.parent_id "
           "FROM Services s "
-          "JOIN ServiceFirmware sf ON s.id = sf.service_id "
-          "WHERE s.parent_id IS NULL AND sf.firmware_id = ?;";
+          "JOIN ServiceDeviceModelFirmware sdf ON s.id = sdf.service_id "
+          "WHERE s.parent_id IS NULL AND sdf.device_model_firmware_id = ?;";
   }
 
   sqlite3_stmt *stmt;
@@ -678,9 +717,9 @@ DeviceManager::getServicesByParentAndFirmware(int parentId, int firmwareId) {
   if (sqlite3_prepare_v2(db, sql, -1, &stmt, nullptr) == SQLITE_OK) {
     if (parentId > 0) {
       sqlite3_bind_int(stmt, 1, parentId);
-      sqlite3_bind_int(stmt, 2, firmwareId);
+      sqlite3_bind_int(stmt, 2, deviceModelFirmwareId);
     } else {
-      sqlite3_bind_int(stmt, 1, firmwareId);
+      sqlite3_bind_int(stmt, 1, deviceModelFirmwareId);
     }
     while (sqlite3_step(stmt) == SQLITE_ROW) {
       ServiceRecord rec;
@@ -716,17 +755,18 @@ std::optional<ServiceRecord> DeviceManager::getServiceById(int id) {
   return result;
 }
 
-int DeviceManager::addFeature(const std::string &descKey, int serviceFirmwareId,
+int DeviceManager::addFeature(const std::string &descKey,
+                              int serviceDeviceModelFirmwareId,
                               int parentFeatureId) {
-  const char *sql =
-      "INSERT INTO Features (description_key, service_firmware_id, "
-      "parent_feature_id) VALUES (?, ?, ?);";
+  const char *sql = "INSERT INTO Features (description_key, "
+                    "service_device_model_firmware_id, "
+                    "parent_feature_id) VALUES (?, ?, ?);";
   sqlite3_stmt *stmt;
   if (sqlite3_prepare_v2(db, sql, -1, &stmt, nullptr) != SQLITE_OK)
     return 0;
 
   sqlite3_bind_text(stmt, 1, descKey.c_str(), -1, SQLITE_TRANSIENT);
-  sqlite3_bind_int(stmt, 2, serviceFirmwareId);
+  sqlite3_bind_int(stmt, 2, serviceDeviceModelFirmwareId);
   if (parentFeatureId > 0)
     sqlite3_bind_int(stmt, 3, parentFeatureId);
   else
@@ -742,16 +782,18 @@ int DeviceManager::addFeature(const std::string &descKey, int serviceFirmwareId,
 }
 
 bool DeviceManager::updateFeature(int id, const std::string &descKey,
-                                  int serviceFirmwareId, int parentFeatureId) {
-  const char *sql = "UPDATE Features SET description_key = ?, "
-                    "service_firmware_id = ?, parent_feature_id = ? WHERE id = "
-                    "?;";
+                                  int serviceDeviceModelFirmwareId,
+                                  int parentFeatureId) {
+  const char *sql =
+      "UPDATE Features SET description_key = ?, "
+      "service_device_model_firmware_id = ?, parent_feature_id = ? WHERE id = "
+      "?;";
   sqlite3_stmt *stmt;
   if (sqlite3_prepare_v2(db, sql, -1, &stmt, nullptr) != SQLITE_OK)
     return false;
 
   sqlite3_bind_text(stmt, 1, descKey.c_str(), -1, SQLITE_TRANSIENT);
-  sqlite3_bind_int(stmt, 2, serviceFirmwareId);
+  sqlite3_bind_int(stmt, 2, serviceDeviceModelFirmwareId);
   if (parentFeatureId > 0)
     sqlite3_bind_int(stmt, 3, parentFeatureId);
   else
@@ -776,21 +818,23 @@ bool DeviceManager::deleteFeature(int id) {
 }
 
 std::vector<FeatureRecord>
-DeviceManager::getFeaturesByServiceFirmware(int serviceFirmwareId) {
+DeviceManager::getFeaturesByServiceDeviceModelFirmware(
+    int serviceDeviceModelFirmwareId) {
   std::vector<FeatureRecord> records;
-  const char *sql = "SELECT id, description_key, service_firmware_id, "
-                    "IFNULL(parent_feature_id, 0) FROM "
-                    "Features WHERE service_firmware_id = ?;";
+  const char *sql =
+      "SELECT id, description_key, service_device_model_firmware_id, "
+      "IFNULL(parent_feature_id, 0) FROM "
+      "Features WHERE service_device_model_firmware_id = ?;";
   sqlite3_stmt *stmt;
 
   if (sqlite3_prepare_v2(db, sql, -1, &stmt, nullptr) == SQLITE_OK) {
-    sqlite3_bind_int(stmt, 1, serviceFirmwareId);
+    sqlite3_bind_int(stmt, 1, serviceDeviceModelFirmwareId);
     while (sqlite3_step(stmt) == SQLITE_ROW) {
       FeatureRecord rec;
       rec.id = sqlite3_column_int(stmt, 0);
       rec.description_key =
           reinterpret_cast<const char *>(sqlite3_column_text(stmt, 1));
-      rec.service_firmware_id = sqlite3_column_int(stmt, 2);
+      rec.service_device_model_firmware_id = sqlite3_column_int(stmt, 2);
       rec.parent_feature_id = sqlite3_column_int(stmt, 3);
       records.push_back(rec);
     }
@@ -855,7 +899,7 @@ std::optional<FeatureRecord> DeviceManager::getFeatureById(int id) {
       rec.id = sqlite3_column_int(stmt, 0);
       rec.description_key =
           reinterpret_cast<const char *>(sqlite3_column_text(stmt, 1));
-      rec.service_firmware_id = sqlite3_column_int(stmt, 2);
+      rec.service_device_model_firmware_id = sqlite3_column_int(stmt, 2);
       result = rec;
     }
   }
@@ -864,12 +908,13 @@ std::optional<FeatureRecord> DeviceManager::getFeatureById(int id) {
 }
 
 std::optional<DeviceManager::ServiceLayoutRecord>
-DeviceManager::getScreenLayout(int serviceFirmwareId) {
-  // Get service details via ServiceFirmware join
-  const char *serviceSql = "SELECT s.id, s.description_key "
-                           "FROM Services s "
-                           "JOIN ServiceFirmware sf ON s.id = sf.service_id "
-                           "WHERE sf.id = ?;";
+DeviceManager::getScreenLayout(int serviceDeviceModelFirmwareId) {
+  // Get service details via ServiceDeviceModelFirmware join
+  const char *serviceSql =
+      "SELECT s.id, s.description_key "
+      "FROM Services s "
+      "JOIN ServiceDeviceModelFirmware sdf ON s.id = sdf.service_id "
+      "WHERE sdf.id = ?;";
 
   sqlite3_stmt *serviceStmt;
   ServiceLayoutRecord layout;
@@ -877,7 +922,7 @@ DeviceManager::getScreenLayout(int serviceFirmwareId) {
 
   if (sqlite3_prepare_v2(db, serviceSql, -1, &serviceStmt, nullptr) ==
       SQLITE_OK) {
-    sqlite3_bind_int(serviceStmt, 1, serviceFirmwareId);
+    sqlite3_bind_int(serviceStmt, 1, serviceDeviceModelFirmwareId);
     if (sqlite3_step(serviceStmt) == SQLITE_ROW) {
       layout.service_id = sqlite3_column_int(serviceStmt, 0);
       layout.description_key =
@@ -902,12 +947,12 @@ DeviceManager::getScreenLayout(int serviceFirmwareId) {
       "FROM Features f "
       "LEFT JOIN FeatureComponent fc ON f.id = fc.feature_id "
       "LEFT JOIN Component c ON fc.component_id = c.id "
-      "WHERE f.service_firmware_id = ?;";
+      "WHERE f.service_device_model_firmware_id = ?;";
 
   sqlite3_stmt *layoutStmt;
   if (sqlite3_prepare_v2(db, layoutSql, -1, &layoutStmt, nullptr) ==
       SQLITE_OK) {
-    sqlite3_bind_int(layoutStmt, 1, serviceFirmwareId);
+    sqlite3_bind_int(layoutStmt, 1, serviceDeviceModelFirmwareId);
 
     while (sqlite3_step(layoutStmt) == SQLITE_ROW) {
       FeatureComponentRecord rec;
@@ -985,14 +1030,15 @@ DeviceManager::getScreenLayout(int serviceFirmwareId) {
     }
   }
 
-  // Get firmwareId from sfId to use for children
-  int firmwareId = 0;
-  const char *fwSql = "SELECT firmware_id FROM ServiceFirmware WHERE id = ?;";
+  // Get dmfId from scfId to use for children
+  int dmfId = 0;
+  const char *fwSql = "SELECT device_model_firmware_id FROM "
+                      "ServiceDeviceModelFirmware WHERE id = ?;";
   sqlite3_stmt *fwStmt;
   if (sqlite3_prepare_v2(db, fwSql, -1, &fwStmt, nullptr) == SQLITE_OK) {
-    sqlite3_bind_int(fwStmt, 1, serviceFirmwareId);
+    sqlite3_bind_int(fwStmt, 1, serviceDeviceModelFirmwareId);
     if (sqlite3_step(fwStmt) == SQLITE_ROW) {
-      firmwareId = sqlite3_column_int(fwStmt, 0);
+      dmfId = sqlite3_column_int(fwStmt, 0);
     }
   }
   sqlite3_finalize(fwStmt);
@@ -1005,9 +1051,9 @@ DeviceManager::getScreenLayout(int serviceFirmwareId) {
     sqlite3_bind_int(childrenStmt, 1, layout.service_id);
     while (sqlite3_step(childrenStmt) == SQLITE_ROW) {
       int childServiceId = sqlite3_column_int(childrenStmt, 0);
-      int childSfId = getServiceFirmwareId(childServiceId, firmwareId);
-      if (childSfId > 0) {
-        auto childLayout = getScreenLayout(childSfId);
+      int childScfId = getServiceDeviceModelFirmwareId(childServiceId, dmfId);
+      if (childScfId > 0) {
+        auto childLayout = getScreenLayout(childScfId);
         if (childLayout) {
           layout.children.push_back(*childLayout);
         }
