@@ -27,12 +27,7 @@ struct DeviceRecord {
 struct ModelRecord {
   int id;
   std::string description_key;
-};
-
-struct DeviceModelRecord {
-  int id;
   int device_id;
-  int model_id;
 };
 
 struct FirmwareVersionRecord {
@@ -40,9 +35,9 @@ struct FirmwareVersionRecord {
   std::string description_key;
 };
 
-struct DeviceModelFirmwareRecord {
+struct ModelFirmwareRecord {
   int id;
-  int device_model_id;
+  int model_id;
   int firmware_id;
 };
 
@@ -55,7 +50,8 @@ struct ServiceRecord {
 struct FeatureRecord {
   int id;
   std::string description_key;
-  int service_device_model_firmware_id;
+  int service_id;
+  int model_firmware_id;
   int parent_feature_id;
 };
 
@@ -107,51 +103,38 @@ public:
   std::optional<DeviceRecord> getDeviceById(int id);
 
   // Model methods
-  int addModel(const std::string &key);
-  bool updateModel(int id, const std::string &key);
+  int addModel(const std::string &key, int deviceId);
+  bool updateModel(int id, const std::string &key, int deviceId);
   bool deleteModel(int id);
   std::vector<ModelRecord> getAllModels();
+  std::vector<ModelRecord> getModelsForDevice(int deviceId);
   std::optional<ModelRecord> getModelById(int id);
-
-  // DeviceModel methods
-  int addDeviceModel(int deviceId, int modelId);
-  bool deleteDeviceModel(int id);
-  std::vector<DeviceModelRecord> getDeviceModelsForDevice(int deviceId);
-  std::optional<DeviceModelRecord> getDeviceModelById(int id);
-  int getDeviceModelId(int deviceId, int modelId);
 
   // Firmware methods
   int addFirmwareVersion(const std::string &descKey);
-  int linkFirmwareToModel(int firmwareId, int deviceModelId);
+  int linkFirmwareToModel(int firmwareId, int modelId);
   bool deleteFirmwareVersion(int id);
-  std::vector<FirmwareVersionRecord>
-  getFirmwareVersionsForDeviceModel(int deviceModelId);
+  std::vector<FirmwareVersionRecord> getFirmwareVersionsForModel(int modelId);
   std::optional<FirmwareVersionRecord> getFirmwareVersionById(int id);
-  int getDeviceModelFirmwareId(int deviceModelId, int firmwareId);
+  int getModelFirmwareId(int modelId, int firmwareId);
 
   // Service methods
   int addService(const std::string &descKey, int parentId = 0);
   bool updateService(int id, const std::string &descKey, int parentId = 0);
   bool deleteService(int id);
-  int linkServiceToDeviceModelFirmware(int serviceId,
-                                       int deviceModelFirmwareId);
-  bool unlinkServiceFromDeviceModelFirmware(int serviceId,
-                                            int deviceModelFirmwareId);
-  int getServiceDeviceModelFirmwareId(int serviceId, int deviceModelFirmwareId);
   std::vector<ServiceRecord> getAllServices();
   std::vector<ServiceRecord>
-  getServicesByParentAndDeviceModelFirmware(int parentId,
-                                            int deviceModelFirmwareId);
+  getServicesByParentAndModelFirmware(int parentId, int modelFirmwareId);
   std::optional<ServiceRecord> getServiceById(int id);
 
   // Feature methods
-  int addFeature(const std::string &descKey, int serviceDeviceModelFirmwareId,
+  int addFeature(const std::string &descKey, int serviceId, int modelFirmwareId,
                  int parentFeatureId = 0);
-  bool updateFeature(int id, const std::string &descKey,
-                     int serviceDeviceModelFirmwareId, int parentFeatureId = 0);
+  bool updateFeature(int id, const std::string &descKey, int serviceId,
+                     int modelFirmwareId, int parentFeatureId = 0);
   bool deleteFeature(int id);
   std::vector<FeatureRecord>
-  getFeaturesByServiceDeviceModelFirmware(int serviceDeviceModelFirmwareId);
+  getFeaturesByServiceAndModelFirmware(int serviceId, int modelFirmwareId);
   std::optional<FeatureRecord> getFeatureById(int id);
 
   // Component methods
@@ -190,8 +173,8 @@ public:
     std::vector<ServiceLayoutRecord> children;
   };
 
-  std::optional<ServiceLayoutRecord>
-  getScreenLayout(int serviceDeviceModelFirmwareId);
+  std::optional<ServiceLayoutRecord> getScreenLayout(int serviceId,
+                                                     int modelFirmwareId);
 
   int addComponentOption(int featureComponentId, const std::string &value,
                          const std::string &descKey);

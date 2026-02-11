@@ -24,24 +24,20 @@ const std::vector<std::string> INITIALIZATION_SQL = {
     "(description_key) REFERENCES Descriptions(key));",
 
     "CREATE TABLE IF NOT EXISTS Models (id INTEGER PRIMARY KEY "
-    "AUTOINCREMENT, description_key TEXT UNIQUE NOT NULL, FOREIGN KEY "
-    "(description_key) REFERENCES Descriptions(key));",
-
-    "CREATE TABLE IF NOT EXISTS DeviceModels (id INTEGER PRIMARY KEY "
-    "AUTOINCREMENT, device_id INTEGER NOT NULL, model_id INTEGER NOT NULL, "
+    "AUTOINCREMENT, description_key TEXT UNIQUE NOT NULL, "
+    "device_id INTEGER NOT NULL, "
     "FOREIGN KEY (device_id) REFERENCES Devices(id) ON DELETE CASCADE, "
-    "FOREIGN KEY (model_id) REFERENCES Models(id) ON DELETE CASCADE, "
-    "UNIQUE(device_id, model_id));",
+    "FOREIGN KEY (description_key) REFERENCES Descriptions(key));",
 
     "CREATE TABLE IF NOT EXISTS FirmwareVersions (id INTEGER PRIMARY KEY "
     "AUTOINCREMENT, description_key TEXT UNIQUE NOT NULL, "
     "FOREIGN KEY (description_key) REFERENCES Descriptions(key));",
 
-    "CREATE TABLE IF NOT EXISTS DeviceModelFirmware (id INTEGER PRIMARY KEY "
-    "AUTOINCREMENT, device_model_id INTEGER NOT NULL, firmware_id INTEGER "
-    "NOT NULL, FOREIGN KEY (device_model_id) REFERENCES DeviceModels(id) ON "
+    "CREATE TABLE IF NOT EXISTS ModelFirmware (id INTEGER PRIMARY KEY "
+    "AUTOINCREMENT, model_id INTEGER NOT NULL, firmware_id INTEGER "
+    "NOT NULL, FOREIGN KEY (model_id) REFERENCES Models(id) ON "
     "DELETE CASCADE, FOREIGN KEY (firmware_id) REFERENCES FirmwareVersions(id) "
-    "ON DELETE CASCADE, UNIQUE(device_model_id, firmware_id));",
+    "ON DELETE CASCADE, UNIQUE(model_id, firmware_id));",
 
     "CREATE TABLE IF NOT EXISTS Services (id INTEGER PRIMARY KEY "
     "AUTOINCREMENT, description_key TEXT UNIQUE NOT NULL, "
@@ -49,25 +45,18 @@ const std::vector<std::string> INITIALIZATION_SQL = {
     "(description_key) REFERENCES Descriptions(key), FOREIGN KEY (parent_id) "
     "REFERENCES Services(id) ON DELETE CASCADE);",
 
-    "CREATE TABLE IF NOT EXISTS ServiceDeviceModelFirmware (id INTEGER PRIMARY "
-    "KEY "
-    "AUTOINCREMENT, service_id INTEGER NOT NULL, device_model_firmware_id "
-    "INTEGER NOT NULL, "
-    "FOREIGN KEY (service_id) REFERENCES Services(id) ON DELETE CASCADE, "
-    "FOREIGN KEY (device_model_firmware_id) REFERENCES DeviceModelFirmware(id) "
-    "ON DELETE CASCADE, "
-    "UNIQUE(service_id, device_model_firmware_id));",
-
     "CREATE TABLE IF NOT EXISTS Features (id INTEGER PRIMARY KEY "
     "AUTOINCREMENT, description_key TEXT NOT NULL, "
-    "service_device_model_firmware_id INTEGER "
-    "NOT NULL, parent_feature_id INTEGER, "
-    "FOREIGN KEY (description_key) REFERENCES Descriptions(key), FOREIGN "
-    "KEY (service_device_model_firmware_id) REFERENCES "
-    "ServiceDeviceModelFirmware(id) ON DELETE "
-    "CASCADE, FOREIGN KEY (parent_feature_id) REFERENCES Features(id) ON "
-    "DELETE "
-    "CASCADE);",
+    "service_id INTEGER NOT NULL, "
+    "model_firmware_id INTEGER NOT NULL, "
+    "parent_feature_id INTEGER, "
+    "FOREIGN KEY (description_key) REFERENCES Descriptions(key), "
+    "FOREIGN KEY (service_id) REFERENCES Services(id) ON DELETE CASCADE, "
+    "FOREIGN KEY (model_firmware_id) REFERENCES ModelFirmware(id) ON DELETE "
+    "CASCADE, "
+    "FOREIGN KEY (parent_feature_id) REFERENCES Features(id) ON DELETE "
+    "CASCADE, "
+    "UNIQUE(service_id, model_firmware_id, description_key));",
 
     "CREATE TABLE IF NOT EXISTS Component (id INTEGER PRIMARY KEY "
     "AUTOINCREMENT, type TEXT UNIQUE NOT NULL);",
@@ -152,33 +141,8 @@ const std::vector<std::string> INITIALIZATION_SQL = {
     "FOREIGN KEY (feature_id) REFERENCES Features(id) ON DELETE CASCADE,"
     "UNIQUE(physical_device_id, feature_id));",
 
-    "INSERT OR IGNORE INTO Migrations (version) VALUES (2);"};
+    "INSERT OR IGNORE INTO Migrations (version) VALUES (1);"};
 
-const std::map<int, std::vector<std::string>> MIGRATIONS_SQL = {
-    {2,
-     {"CREATE TABLE IF NOT EXISTS PhysicalDevices ("
-      "id INTEGER PRIMARY KEY AUTOINCREMENT,"
-      "name TEXT NOT NULL,"
-      "device_id INTEGER NOT NULL,"
-      "model_id INTEGER NOT NULL,"
-      "firmware_version_id INTEGER NOT NULL,"
-      "identifier TEXT UNIQUE NOT NULL,"
-      "description TEXT,"
-      "comment TEXT,"
-      "is_template INTEGER NOT NULL DEFAULT 0,"
-      "FOREIGN KEY (device_id) REFERENCES Devices(id),"
-      "FOREIGN KEY (model_id) REFERENCES Models(id),"
-      "FOREIGN KEY (firmware_version_id) REFERENCES FirmwareVersions(id));",
-
-      "CREATE TABLE IF NOT EXISTS PhysicalDeviceValues ("
-      "id INTEGER PRIMARY KEY AUTOINCREMENT,"
-      "physical_device_id INTEGER NOT NULL,"
-      "feature_id INTEGER NOT NULL,"
-      "value TEXT,"
-      "FOREIGN KEY (physical_device_id) REFERENCES PhysicalDevices(id) ON "
-      "DELETE "
-      "CASCADE,"
-      "FOREIGN KEY (feature_id) REFERENCES Features(id) ON DELETE CASCADE,"
-      "UNIQUE(physical_device_id, feature_id));"}}};
+const std::map<int, std::vector<std::string>> MIGRATIONS_SQL = {};
 
 } // namespace Schema

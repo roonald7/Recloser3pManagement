@@ -74,20 +74,20 @@ message DeviceRecord {
 message FirmwareRecord {
   int32 id = 1;
   string description_key = 2;
-  int32 device_model_id = 3;
+  int32 model_id = 3;
 }
 
 message ServiceRecord {
   int32 id = 1;
   string description_key = 2;
   int32 parent_id = 3;
-  int32 device_model_firmware_id = 4;
 }
 
 message FeatureRecord {
   int32 id = 1;
   string description_key = 2;
-  int32 service_device_model_firmware_id = 3;
+  int32 service_id = 3;
+  int32 model_firmware_id = 4;
 }
 
 message LanguagesRequest {}
@@ -110,7 +110,6 @@ message FirmwareInventory {
 
 message ModelInventory {
   int32 id = 1;
-  int32 device_model_id = 2; // The ID from DeviceModels table
   string description_key = 3;
   repeated Translation translations = 4;
   repeated FirmwareInventory firmwares = 5;

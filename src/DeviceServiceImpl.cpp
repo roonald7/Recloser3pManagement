@@ -111,16 +111,15 @@ void DeviceServiceImpl::fillServiceNode(const ServiceNodeInfo &info,
   }
 }
 
-void DeviceServiceImpl::buildServiceNode(int parentId, int dmfId,
+void DeviceServiceImpl::buildServiceNode(int parentId, int mfId,
                                          ServiceNode *parentNode) {
 
   auto childServices =
-      manager_->getServicesByParentAndDeviceModelFirmware(parentId, dmfId);
+      manager_->getServicesByParentAndModelFirmware(parentId, mfId);
 
   for (const auto &service : childServices) {
     ServiceNode *childNode = parentNode->add_children();
-    int sdfId = manager_->getServiceDeviceModelFirmwareId(service.id, dmfId);
-    childNode->set_id(sdfId);
+    childNode->set_id(service.id);
     childNode->set_description_key(service.description_key);
 
     auto translations =
@@ -132,25 +131,23 @@ void DeviceServiceImpl::buildServiceNode(int parentId, int dmfId,
     }
 
     // Get features for this child service-firmware combination
-    if (sdfId > 0) {
-      auto features = manager_->getFeaturesByServiceDeviceModelFirmware(sdfId);
-      for (const auto &feat : features) {
-        Feature *feature = childNode->add_features();
-        feature->set_id(feat.id);
-        feature->set_feature_key(feat.description_key);
+    auto features =
+        manager_->getFeaturesByServiceAndModelFirmware(service.id, mfId);
+    for (const auto &feat : features) {
+      Feature *feature = childNode->add_features();
+      feature->set_id(feat.id);
+      feature->set_feature_key(feat.description_key);
 
-        auto fTranslations =
-            manager_->getTranslationsForKey(feat.description_key);
-        for (const auto &t : fTranslations) {
-          auto *trans = feature->add_translations();
-          trans->set_language_code(t.language_code);
-          trans->set_value(t.value);
-        }
+      auto fTranslations =
+          manager_->getTranslationsForKey(feat.description_key);
+      for (const auto &t : fTranslations) {
+        auto *trans = feature->add_translations();
+        trans->set_language_code(t.language_code);
+        trans->set_value(t.value);
       }
     }
-
     // Recursively build grandchildren
-    buildServiceNode(service.id, dmfId, childNode);
+    buildServiceNode(service.id, mfId, childNode);
   }
 }
 
@@ -159,7 +156,7 @@ void DeviceServiceImpl::buildInternalTree(
     std::map<std::string, ServiceTreeNode> &tree) {
 
   auto services =
-      manager_->getServicesByParentAndDeviceModelFirmware(parentId, dmfId);
+      manager_->getServicesByParentAndModelFirmware(parentId, dmfId);
 
   for (const auto &service : services) {
     ServiceTreeNode node;
@@ -168,12 +165,10 @@ void DeviceServiceImpl::buildInternalTree(
         manager_->getTranslation(service.description_key, languageCode);
 
     // Get features for this service-firmware combination
-    int sdfId = manager_->getServiceDeviceModelFirmwareId(service.id, dmfId);
-    if (sdfId > 0) {
-      auto features = manager_->getFeaturesByServiceDeviceModelFirmware(sdfId);
-      for (const auto &feat : features) {
-        node.features.insert(feat.description_key);
-      }
+    auto features =
+        manager_->getFeaturesByServiceAndModelFirmware(service.id, dmfId);
+    for (const auto &feat : features) {
+      node.features.insert(feat.description_key);
     }
 
     // Recursively build children
@@ -282,32 +277,23 @@ DeviceServiceImpl::GetScreenLayout(grpc::ServerContext *context,
             << ", service_id=" << serviceId
             << ", physical_device_id=" << physicalDeviceId << std::endl;
 
-  // First, get the device_model_id
-  int deviceModelId = manager_->getDeviceModelId(deviceId, modelId);
-  if (deviceModelId <= 0) {
-    return grpc::Status(grpc::StatusCode::NOT_FOUND,
-                        "Device-Model combination not found");
-  }
-
-  // Then, get the device_model_firmware_id
-  int dmfId = manager_->getDeviceModelFirmwareId(deviceModelId, firmwareId);
+  // Get the device_model_firmware_id directly from model and firmware
+  int dmfId = manager_->getModelFirmwareId(modelId, firmwareId);
   if (dmfId <= 0) {
     return grpc::Status(grpc::StatusCode::NOT_FOUND,
-                        "Device-Model-Firmware combination not found");
+                        "Model-Firmware combination not found");
   }
 
-  int targetSdfId = serviceId;
-  if (targetSdfId <= 0) {
+  int targetServiceId = serviceId;
+  if (targetServiceId <= 0) {
     // If no serviceId is provided, try to find the first root service
-    auto topServices =
-        manager_->getServicesByParentAndDeviceModelFirmware(0, dmfId);
+    auto topServices = manager_->getServicesByParentAndModelFirmware(0, dmfId);
     if (!topServices.empty()) {
-      targetSdfId =
-          manager_->getServiceDeviceModelFirmwareId(topServices[0].id, dmfId);
+      targetServiceId = topServices[0].id;
     }
   }
 
-  if (targetSdfId <= 0) {
+  if (targetServiceId <= 0) {
     return grpc::Status(grpc::StatusCode::NOT_FOUND,
                         "No services found for this firmware");
   }
@@ -321,7 +307,7 @@ DeviceServiceImpl::GetScreenLayout(grpc::ServerContext *context,
     }
   }
 
-  auto layoutResult = manager_->getScreenLayout(targetSdfId);
+  auto layoutResult = manager_->getScreenLayout(targetServiceId, dmfId);
 
   if (layoutResult) {
     populateServiceLayout(*layoutResult, response->mutable_service_layout(),
@@ -434,9 +420,8 @@ grpc::Status DeviceServiceImpl::CreateFirmware(grpc::ServerContext *context,
                                                GenericResponse *response) {
   int firmwareId = manager_->addFirmwareVersion(request->description_key());
   bool success = (firmwareId > 0);
-  if (success && request->device_model_id() > 0) {
-    int dmfId =
-        manager_->linkFirmwareToModel(firmwareId, request->device_model_id());
+  if (success && request->model_id() > 0) {
+    int dmfId = manager_->linkFirmwareToModel(firmwareId, request->model_id());
     success = (dmfId > 0);
   }
   response->set_success(success);
@@ -452,9 +437,8 @@ grpc::Status DeviceServiceImpl::UpdateFirmware(grpc::ServerContext *context,
   // link
   int firmwareId = manager_->addFirmwareVersion(request->description_key());
   bool success = (firmwareId > 0);
-  if (success && request->device_model_id() > 0) {
-    int dmfId =
-        manager_->linkFirmwareToModel(firmwareId, request->device_model_id());
+  if (success && request->model_id() > 0) {
+    int dmfId = manager_->linkFirmwareToModel(firmwareId, request->model_id());
     success = (dmfId > 0);
   }
   response->set_success(success);
@@ -479,10 +463,6 @@ grpc::Status DeviceServiceImpl::AddServiceNode(grpc::ServerContext *context,
   int serviceId =
       manager_->addService(request->description_key(), request->parent_id());
   bool success = (serviceId > 0);
-  if (success && request->device_model_firmware_id() > 0) {
-    success = manager_->linkServiceToDeviceModelFirmware(
-                  serviceId, request->device_model_firmware_id()) > 0;
-  }
 
   response->set_success(success);
   response->set_message(success ? "Service created"
@@ -514,8 +494,9 @@ grpc::Status DeviceServiceImpl::DeleteServiceNode(grpc::ServerContext *context,
 grpc::Status DeviceServiceImpl::CreateFeature(grpc::ServerContext *context,
                                               const FeatureRecord *request,
                                               GenericResponse *response) {
-  bool success = manager_->addFeature(
-      request->description_key(), request->service_device_model_firmware_id());
+  bool success =
+      manager_->addFeature(request->description_key(), request->service_id(),
+                           request->model_firmware_id());
   response->set_success(success);
   response->set_message(success ? "Feature created"
                                 : "Failed to create feature");
@@ -525,9 +506,9 @@ grpc::Status DeviceServiceImpl::CreateFeature(grpc::ServerContext *context,
 grpc::Status DeviceServiceImpl::UpdateFeature(grpc::ServerContext *context,
                                               const FeatureRecord *request,
                                               GenericResponse *response) {
-  bool success =
-      manager_->updateFeature(request->id(), request->description_key(),
-                              request->service_device_model_firmware_id());
+  bool success = manager_->updateFeature(
+      request->id(), request->description_key(), request->service_id(),
+      request->model_firmware_id());
   response->set_success(success);
   response->set_message(success ? "Feature updated"
                                 : "Failed to update feature");
@@ -564,31 +545,25 @@ DeviceServiceImpl::GetFullInventory(grpc::ServerContext *context,
       trans->set_value(t.value);
     }
 
-    auto deviceModels = manager_->getDeviceModelsForDevice(d.id);
-    for (const auto &dm : deviceModels) {
-      auto modelOpt = manager_->getModelById(dm.model_id);
-      if (!modelOpt)
-        continue;
-
+    auto models = manager_->getModelsForDevice(d.id);
+    for (const auto &model : models) {
       auto *mi = di->add_models();
-      mi->set_id(modelOpt->id);
-      mi->set_device_model_id(dm.id);
-      mi->set_description_key(modelOpt->description_key);
+      mi->set_id(model.id);
+      mi->set_description_key(model.description_key);
 
       auto mTranslations =
-          manager_->getTranslationsForKey(modelOpt->description_key);
+          manager_->getTranslationsForKey(model.description_key);
       for (const auto &t : mTranslations) {
         auto *trans = mi->add_translations();
         trans->set_language_code(t.language_code);
         trans->set_value(t.value);
       }
 
-      auto firmwares = manager_->getFirmwareVersionsForDeviceModel(dm.id);
+      auto firmwares = manager_->getFirmwareVersionsForModel(model.id);
       for (const auto &f : firmwares) {
         auto *fi = mi->add_firmwares();
-        int dmfId = manager_->getDeviceModelFirmwareId(dm.id, f.id);
-        fi->set_id(
-            dmfId); // Returning DMF ID as the "firmware id" for inventory
+        int mfId = manager_->getModelFirmwareId(model.id, f.id);
+        fi->set_id(mfId); // Returning DMF ID as the "firmware id" for inventory
         fi->set_description_key(f.description_key);
 
         auto fTranslations = manager_->getTranslationsForKey(f.description_key);
@@ -600,11 +575,10 @@ DeviceServiceImpl::GetFullInventory(grpc::ServerContext *context,
 
         // Fetch top level services for this model-firmware combination
         auto topServices =
-            manager_->getServicesByParentAndDeviceModelFirmware(0, dmfId);
+            manager_->getServicesByParentAndModelFirmware(0, mfId);
         for (const auto &s : topServices) {
           auto *sn = fi->add_services();
-          int sdfId = manager_->getServiceDeviceModelFirmwareId(s.id, dmfId);
-          sn->set_id(sdfId);
+          sn->set_id(s.id);
           sn->set_description_key(s.description_key);
 
           auto sTranslations =
@@ -615,24 +589,22 @@ DeviceServiceImpl::GetFullInventory(grpc::ServerContext *context,
             trans->set_value(t.value);
           }
 
-          if (sdfId > 0) {
-            auto features =
-                manager_->getFeaturesByServiceDeviceModelFirmware(sdfId);
-            for (const auto &feat : features) {
-              Feature *feature = sn->add_features();
-              feature->set_id(feat.id);
-              feature->set_feature_key(feat.description_key);
+          auto features =
+              manager_->getFeaturesByServiceAndModelFirmware(s.id, mfId);
+          for (const auto &feat : features) {
+            Feature *feature = sn->add_features();
+            feature->set_id(feat.id);
+            feature->set_feature_key(feat.description_key);
 
-              auto ftTranslations =
-                  manager_->getTranslationsForKey(feat.description_key);
-              for (const auto &t : ftTranslations) {
-                auto *trans = feature->add_translations();
-                trans->set_language_code(t.language_code);
-                trans->set_value(t.value);
-              }
+            auto ftTranslations =
+                manager_->getTranslationsForKey(feat.description_key);
+            for (const auto &t : ftTranslations) {
+              auto *trans = feature->add_translations();
+              trans->set_language_code(t.language_code);
+              trans->set_value(t.value);
             }
           }
-          buildServiceNode(s.id, dmfId, sn);
+          buildServiceNode(s.id, mfId, sn);
         }
       }
     }
@@ -702,9 +674,8 @@ grpc::Status DeviceServiceImpl::ComparePhysicalDevices(
   response->set_physical_device_id_2(id2);
 
   // Use Device 1's firmware as the structural base
-  int dmfId = manager_->getDeviceModelFirmwareId(
-      manager_->getDeviceModelId(dev1->device_id, dev1->model_id),
-      dev1->firmware_version_id);
+  int dmfId =
+      manager_->getModelFirmwareId(dev1->model_id, dev1->firmware_version_id);
 
   auto tree = ServiceHelpers::getServiceTree(
       manager_, dev1->device_id, dev1->model_id, dev1->firmware_version_id);
