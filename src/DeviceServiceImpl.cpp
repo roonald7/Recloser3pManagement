@@ -271,15 +271,61 @@ DeviceServiceImpl::GetScreenLayout(grpc::ServerContext *context,
                                    const ScreenLayoutRequest *request,
                                    ScreenLayoutResponse *response) {
 
-  int sdfId = request->service_device_model_firmware_id();
+  int deviceId = request->device_id();
+  int modelId = request->model_id();
+  int firmwareId = request->firmware_id();
+  int serviceId = request->service_id();
+  int64_t physicalDeviceId = request->physical_device_id();
 
-  std::cout << "GetScreenLayout called for service_device_model_firmware_id="
-            << sdfId << std::endl;
+  std::cout << "GetScreenLayout called for device_id=" << deviceId
+            << ", model_id=" << modelId << ", firmware_id=" << firmwareId
+            << ", service_id=" << serviceId
+            << ", physical_device_id=" << physicalDeviceId << std::endl;
 
-  auto layoutResult = manager_->getScreenLayout(sdfId);
+  // First, get the device_model_id
+  int deviceModelId = manager_->getDeviceModelId(deviceId, modelId);
+  if (deviceModelId <= 0) {
+    return grpc::Status(grpc::StatusCode::NOT_FOUND,
+                        "Device-Model combination not found");
+  }
+
+  // Then, get the device_model_firmware_id
+  int dmfId = manager_->getDeviceModelFirmwareId(deviceModelId, firmwareId);
+  if (dmfId <= 0) {
+    return grpc::Status(grpc::StatusCode::NOT_FOUND,
+                        "Device-Model-Firmware combination not found");
+  }
+
+  int targetSdfId = serviceId;
+  if (targetSdfId <= 0) {
+    // If no serviceId is provided, try to find the first root service
+    auto topServices =
+        manager_->getServicesByParentAndDeviceModelFirmware(0, dmfId);
+    if (!topServices.empty()) {
+      targetSdfId =
+          manager_->getServiceDeviceModelFirmwareId(topServices[0].id, dmfId);
+    }
+  }
+
+  if (targetSdfId <= 0) {
+    return grpc::Status(grpc::StatusCode::NOT_FOUND,
+                        "No services found for this firmware");
+  }
+
+  // Load saved values if a physical device is specified
+  std::map<int, std::string> savedValues;
+  if (physicalDeviceId > 0) {
+    auto values = manager_->getValuesForPhysicalDevice(physicalDeviceId);
+    for (const auto &v : values) {
+      savedValues[v.feature_id] = v.value;
+    }
+  }
+
+  auto layoutResult = manager_->getScreenLayout(targetSdfId);
 
   if (layoutResult) {
-    populateServiceLayout(*layoutResult, response->mutable_service_layout());
+    populateServiceLayout(*layoutResult, response->mutable_service_layout(),
+                          savedValues);
     return grpc::Status::OK;
   } else {
     return grpc::Status(grpc::StatusCode::NOT_FOUND,
@@ -288,7 +334,8 @@ DeviceServiceImpl::GetScreenLayout(grpc::ServerContext *context,
 }
 
 void DeviceServiceImpl::populateServiceLayout(
-    const DeviceManager::ServiceLayoutRecord &rec, ServiceLayout *layout) {
+    const DeviceManager::ServiceLayoutRecord &rec, ServiceLayout *layout,
+    const std::map<int, std::string> &savedValues) {
 
   layout->set_service_id(rec.service_id);
   layout->set_description_key(rec.description_key);
@@ -301,18 +348,19 @@ void DeviceServiceImpl::populateServiceLayout(
 
   for (const auto &feat : rec.features) {
     FeatureComponentDetail *detail = layout->add_features();
-    populateFeatureDetail(feat, detail);
+    populateFeatureDetail(feat, detail, savedValues);
   }
 
   for (const auto &childRec : rec.children) {
     ServiceLayout *childLayout = layout->add_children();
-    populateServiceLayout(childRec, childLayout);
+    populateServiceLayout(childRec, childLayout, savedValues);
   }
 }
 
 void DeviceServiceImpl::populateFeatureDetail(
     const DeviceManager::FeatureComponentRecord &rec,
-    FeatureComponentDetail *detail) {
+    FeatureComponentDetail *detail,
+    const std::map<int, std::string> &savedValues) {
   detail->set_feature_id(rec.feature_id);
   detail->set_feature_key(rec.feature_key);
 
@@ -330,18 +378,13 @@ void DeviceServiceImpl::populateFeatureDetail(
     limit->set_value(lim.value);
   }
 
-  for (const auto &t : rec.on_translations) {
-    auto *trans = detail->add_on_label_translations();
-    trans->set_language_code(t.language_code);
-    trans->set_value(t.value);
+  // Set saved value if available
+  if (savedValues.count(rec.feature_id)) {
+    detail->set_value(savedValues.at(rec.feature_id));
   }
 
-  for (const auto &t : rec.off_translations) {
-    auto *trans = detail->add_off_label_translations();
-    trans->set_language_code(t.language_code);
-    trans->set_value(t.value);
-  }
-
+  // Add all options (includes ON/OFF for toggles and regular options for
+  // comboboxes)
   for (const auto &opt : rec.options) {
     auto *option = detail->add_options();
     option->set_value(opt.value);
@@ -354,7 +397,7 @@ void DeviceServiceImpl::populateFeatureDetail(
 
   for (const auto &child : rec.children) {
     FeatureComponentDetail *childDetail = detail->add_children();
-    populateFeatureDetail(child, childDetail);
+    populateFeatureDetail(child, childDetail, savedValues);
   }
 }
 
@@ -633,6 +676,134 @@ DeviceServiceImpl::GetDeviceInformation(grpc::ServerContext *context,
       }
     }
   }
+  return grpc::Status::OK;
+}
+
+grpc::Status DeviceServiceImpl::ComparePhysicalDevices(
+    grpc::ServerContext *context, const ComparePhysicalDevicesRequest *request,
+    ComparePhysicalDevicesResponse *response) {
+
+  int64_t id1 = request->physical_device_id_1();
+  int64_t id2 = request->physical_device_id_2();
+  std::string languageCode = request->language_code();
+
+  std::cout << "ComparePhysicalDevices (Hierarchical) called for id1=" << id1
+            << ", id2=" << id2 << ", language=" << languageCode << std::endl;
+
+  auto dev1 = manager_->getPhysicalDeviceById(id1);
+  auto dev2 = manager_->getPhysicalDeviceById(id2);
+
+  if (!dev1 || !dev2) {
+    return grpc::Status(grpc::StatusCode::NOT_FOUND,
+                        "One or both physical devices not found");
+  }
+
+  response->set_physical_device_id_1(id1);
+  response->set_physical_device_id_2(id2);
+
+  // Use Device 1's firmware as the structural base
+  int dmfId = manager_->getDeviceModelFirmwareId(
+      manager_->getDeviceModelId(dev1->device_id, dev1->model_id),
+      dev1->firmware_version_id);
+
+  auto tree = ServiceHelpers::getServiceTree(
+      manager_, dev1->device_id, dev1->model_id, dev1->firmware_version_id);
+
+  // Load values for comparison
+  auto values1 = manager_->getValuesForPhysicalDevice(id1);
+  auto values2 = manager_->getValuesForPhysicalDevice(id2);
+
+  std::map<int, std::string> valMap1, valMap2;
+  // Note: For different firmwares, we would need to map by key,
+  // but for now we assume similar structures or same firmware.
+  for (const auto &v : values1)
+    valMap1[v.feature_id] = v.value;
+  for (const auto &v : values2)
+    valMap2[v.feature_id] = v.value;
+
+  for (const auto &nodeInfo : tree) {
+    auto *rootNode = response->add_root_services();
+    buildPhysicalComparisonNode(nodeInfo, id1, id2, valMap1, valMap2, rootNode);
+  }
+
+  return grpc::Status::OK;
+}
+
+bool DeviceServiceImpl::buildPhysicalComparisonNode(
+    const ServiceNodeInfo &info, int64_t id1, int64_t id2,
+    const std::map<int, std::string> &valMap1,
+    const std::map<int, std::string> &valMap2,
+    PhysicalDeviceServiceComparison *node) {
+
+  node->set_service_id(info.id);
+  node->set_description_key(info.description_key);
+  bool hasDiff = false;
+
+  for (const auto &t : info.translations) {
+    auto *trans = node->add_translations();
+    trans->set_language_code(t.language_code);
+    trans->set_value(t.value);
+  }
+
+  // Features comparison
+  for (const auto &feat : info.features) {
+    auto *featComp = node->add_features();
+    featComp->set_feature_id(feat.record.id);
+    featComp->set_feature_key(feat.record.description_key);
+
+    for (const auto &t : feat.translations) {
+      auto *trans = featComp->add_translations();
+      trans->set_language_code(t.language_code);
+      trans->set_value(t.value);
+    }
+
+    std::string v1 =
+        valMap1.count(feat.record.id) ? valMap1.at(feat.record.id) : "";
+    std::string v2 =
+        valMap2.count(feat.record.id) ? valMap2.at(feat.record.id) : "";
+
+    featComp->set_value_1(v1);
+    featComp->set_value_2(v2);
+    bool isDiff = (v1 != v2);
+    featComp->set_is_different(isDiff);
+
+    if (isDiff)
+      hasDiff = true;
+  }
+
+  // Recursive children
+  for (const auto &childInfo : info.children) {
+    auto *childNode = node->add_children();
+    if (buildPhysicalComparisonNode(childInfo, id1, id2, valMap1, valMap2,
+                                    childNode)) {
+      hasDiff = true;
+    }
+  }
+
+  node->set_has_differences(hasDiff);
+  return hasDiff;
+}
+
+grpc::Status DeviceServiceImpl::GetAllPhysicalDevices(
+    grpc::ServerContext *context, const GetAllPhysicalDevicesRequest *request,
+    GetAllPhysicalDevicesResponse *response) {
+
+  std::cout << "GetAllPhysicalDevices called" << std::endl;
+
+  auto devices = manager_->getAllPhysicalDevices();
+  for (const auto &d : devices) {
+    auto *pd = response->add_physical_devices();
+    pd->set_id(d.id);
+    pd->set_name(d.name);
+    pd->set_device_id(d.device_id);
+    pd->set_model_id(d.model_id);
+    pd->set_firmware_version_id(d.firmware_version_id);
+    pd->set_identifier(d.identifier);
+    pd->set_description(d.description);
+    pd->set_comment(d.comment);
+    pd->set_is_template(d.is_template);
+  }
+
   return grpc::Status::OK;
 }
 

@@ -16,12 +16,15 @@ import {
 } from 'lucide-react';
 
 interface ConfiguratorProps {
+    deviceId: number;
+    modelId: number;
     firmwareId: number;
+    physicalDeviceId?: number;
     services: any[];
     currentLang: string;
 }
 
-export default function Configurator({ firmwareId, services, currentLang }: ConfiguratorProps) {
+export default function Configurator({ deviceId, modelId, firmwareId, physicalDeviceId, services, currentLang }: ConfiguratorProps) {
     const [selectedServiceId, setSelectedServiceId] = useState<number | null>(
         services.length > 0 ? services[0].id : null
     );
@@ -30,13 +33,13 @@ export default function Configurator({ firmwareId, services, currentLang }: Conf
 
     useEffect(() => {
         if (selectedServiceId) {
-            loadLayout(selectedServiceId);
+            loadLayout();
         }
     }, [selectedServiceId]);
 
-    async function loadLayout(id: number) {
+    async function loadLayout() {
         setLoading(true);
-        const result = await getScreenLayout(id);
+        const result = await getScreenLayout(deviceId, modelId, firmwareId, selectedServiceId || undefined, physicalDeviceId);
         setLayout(result);
         setLoading(false);
     }
@@ -57,8 +60,12 @@ export default function Configurator({ firmwareId, services, currentLang }: Conf
         const getLimit = (key: string) => feature.limits?.find((l: any) => l.key === key)?.value;
         const defaultValue = getLimit('DEFAULT_VALUE');
 
-        const [value, setValue] = useState<any>(defaultValue);
-        const [isToggled, setIsToggled] = useState(defaultValue === 'true' || defaultValue === '1' || defaultValue === 'ON');
+        // Prioritize actual saved value over default
+        const initialValue = feature.value !== undefined && feature.value !== "" ? feature.value : defaultValue;
+
+        const [value, setValue] = useState<any>(initialValue);
+        const [isToggled, setIsToggled] = useState(initialValue === 'true' || initialValue === '1' || initialValue === 'ON');
+
 
         const renderInput = () => {
             const minValue = getLimit('MIN_VALUE');
@@ -143,6 +150,9 @@ export default function Configurator({ firmwareId, services, currentLang }: Conf
                         />
                     );
                 case 'TOGGLE':
+                    const onOption = feature.options?.find((opt: any) => opt.value === 'ON');
+                    const offOption = feature.options?.find((opt: any) => opt.value === 'OFF');
+
                     return (
                         <div
                             onClick={() => setIsToggled(!isToggled)}
@@ -155,8 +165,8 @@ export default function Configurator({ firmwareId, services, currentLang }: Conf
                             )}
                             <span style={{ fontSize: '0.875rem', fontWeight: 500 }}>
                                 {isToggled
-                                    ? getTranslation(feature.on_label_translations) || 'Enabled'
-                                    : getTranslation(feature.off_label_translations) || 'Disabled'
+                                    ? (onOption ? getTranslation(onOption.translations) : 'Enabled')
+                                    : (offOption ? getTranslation(offOption.translations) : 'Disabled')
                                 }
                             </span>
                         </div>

@@ -6,12 +6,14 @@ import Link from 'next/link';
 export default async function Page({
     searchParams,
 }: {
-    searchParams: { deviceId?: string; modelId?: string; firmwareId?: string; lang?: string };
+    searchParams: { deviceId?: string; modelId?: string; firmwareId?: string; lang?: string; physicalDeviceId?: string };
 }) {
     const deviceId = searchParams.deviceId ? parseInt(searchParams.deviceId) : null;
     const modelId = searchParams.modelId ? parseInt(searchParams.modelId) : null;
     const firmwareId = searchParams.firmwareId ? parseInt(searchParams.firmwareId) : null;
+    const physicalDeviceId = searchParams.physicalDeviceId ? parseInt(searchParams.physicalDeviceId) : null;
     const currentLang = searchParams.lang || 'enUs';
+
 
     const [devices, languages] = await Promise.all([
         getInventory(),
@@ -72,13 +74,12 @@ export default async function Page({
                         </div>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '1.5rem' }}>
                             <LanguageSwitcher />
-                            <div className="badge" style={{ borderColor: 'var(--primary)', color: 'var(--primary)' }}>
-                                Online
-                            </div>
                         </div>
+
                     </header>
 
-                    <Configurator firmwareId={firmwareId} services={services} currentLang={currentLang} />
+                    <Configurator deviceId={deviceId} modelId={modelId} firmwareId={firmwareId} physicalDeviceId={physicalDeviceId || undefined} services={services} currentLang={currentLang} />
+
                 </div>
             </main>
         );
@@ -177,8 +178,27 @@ export default async function Page({
                             Select a hardware node to begin configuration
                         </p>
                     </div>
-                    <LanguageSwitcher />
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '1.5rem' }}>
+                        <Link
+                            href={{ pathname: '/devices', query: { lang: currentLang } }}
+                            className="badge"
+                            style={{
+                                background: 'var(--glass)',
+                                color: 'var(--accent)',
+                                borderColor: 'var(--accent)',
+                                textDecoration: 'none',
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '0.5rem',
+                                padding: '0.5rem 1rem'
+                            }}
+                        >
+                            <Server size={14} /> View Fleet & Templates
+                        </Link>
+                        <LanguageSwitcher />
+                    </div>
                 </header>
+
 
                 <div className="selector-grid">
                     {devices.map((device: any) => (

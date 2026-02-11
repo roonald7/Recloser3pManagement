@@ -370,4 +370,33 @@ void initialize_recloser_3p(DeviceManager *manager) {
   manager->addComponentOption(fcRecloseAttempts, "1", "OPT_1_ATTEMPT");
   manager->addComponentOption(fcRecloseAttempts, "2", "OPT_2_ATTEMPTS");
   manager->addComponentOption(fcRecloseAttempts, "3", "OPT_3_ATTEMPTS");
+
+  // Generate 2 records for current configurations
+  PhysicalDeviceRecord dev1;
+  dev1.name = "Recloser Unit A";
+  dev1.device_id = dRecloser3p;
+  dev1.model_id = mModel3p4w;
+  dev1.firmware_version_id = fwV1R3P;
+  dev1.identifier = "SN-R3P-001";
+  dev1.description = "Primary Recloser for Substation Alpha";
+  dev1.comment = "Initial deployment";
+  dev1.is_template = false;
+  int64_t id1 = manager->addPhysicalDevice(dev1);
+
+  if (id1 > 0) {
+    manager->setPhysicalDeviceValue(id1, fEnabledAutomaticResetV1, "1");
+    manager->setPhysicalDeviceValue(id1, fAutomaticResetTimeV1, "10");
+    manager->setPhysicalDeviceValue(id1, fRecloseAttempts, "3");
+  }
+
+  PhysicalDeviceRecord dev2;
+  dev2.name = "Standard Template";
+  dev2.device_id = dRecloser3p;
+  dev2.model_id = mModel3p4w;
+  dev2.firmware_version_id = fwV1R3P;
+  dev2.identifier = "TEMP-R3P-STD";
+  dev2.description = "Standard configuration for rural feeders";
+  dev2.comment = "Use this as base for new units";
+  dev2.is_template = true;
+  manager->addPhysicalDevice(dev2);
 }

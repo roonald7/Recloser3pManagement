@@ -99,8 +99,6 @@ const std::vector<std::string> INITIALIZATION_SQL = {
     "INSERT OR IGNORE INTO Limits (key) VALUES ('STEP');",
     "INSERT OR IGNORE INTO Limits (key) VALUES ('MAX_CHAR');",
     "INSERT OR IGNORE INTO Limits (key) VALUES ('MIN_CHAR');",
-    "INSERT OR IGNORE INTO Limits (key) VALUES ('ON_LABEL');",
-    "INSERT OR IGNORE INTO Limits (key) VALUES ('OFF_LABEL');",
 
     "CREATE TABLE IF NOT EXISTS FeatureComponent ("
     "id INTEGER PRIMARY KEY AUTOINCREMENT,"
@@ -130,7 +128,57 @@ const std::vector<std::string> INITIALIZATION_SQL = {
     "CASCADE,"
     "UNIQUE(feature_component_id, value));",
 
-    "INSERT OR IGNORE INTO Migrations (version) VALUES (1);"};
+    "CREATE TABLE IF NOT EXISTS PhysicalDevices ("
+    "id INTEGER PRIMARY KEY AUTOINCREMENT,"
+    "name TEXT NOT NULL,"
+    "device_id INTEGER NOT NULL,"
+    "model_id INTEGER NOT NULL,"
+    "firmware_version_id INTEGER NOT NULL,"
+    "identifier TEXT UNIQUE NOT NULL,"
+    "description TEXT,"
+    "comment TEXT,"
+    "is_template INTEGER NOT NULL DEFAULT 0,"
+    "FOREIGN KEY (device_id) REFERENCES Devices(id),"
+    "FOREIGN KEY (model_id) REFERENCES Models(id),"
+    "FOREIGN KEY (firmware_version_id) REFERENCES FirmwareVersions(id));",
 
-const std::map<int, std::vector<std::string>> MIGRATIONS_SQL = {};
+    "CREATE TABLE IF NOT EXISTS PhysicalDeviceValues ("
+    "id INTEGER PRIMARY KEY AUTOINCREMENT,"
+    "physical_device_id INTEGER NOT NULL,"
+    "feature_id INTEGER NOT NULL,"
+    "value TEXT,"
+    "FOREIGN KEY (physical_device_id) REFERENCES PhysicalDevices(id) ON DELETE "
+    "CASCADE,"
+    "FOREIGN KEY (feature_id) REFERENCES Features(id) ON DELETE CASCADE,"
+    "UNIQUE(physical_device_id, feature_id));",
+
+    "INSERT OR IGNORE INTO Migrations (version) VALUES (2);"};
+
+const std::map<int, std::vector<std::string>> MIGRATIONS_SQL = {
+    {2,
+     {"CREATE TABLE IF NOT EXISTS PhysicalDevices ("
+      "id INTEGER PRIMARY KEY AUTOINCREMENT,"
+      "name TEXT NOT NULL,"
+      "device_id INTEGER NOT NULL,"
+      "model_id INTEGER NOT NULL,"
+      "firmware_version_id INTEGER NOT NULL,"
+      "identifier TEXT UNIQUE NOT NULL,"
+      "description TEXT,"
+      "comment TEXT,"
+      "is_template INTEGER NOT NULL DEFAULT 0,"
+      "FOREIGN KEY (device_id) REFERENCES Devices(id),"
+      "FOREIGN KEY (model_id) REFERENCES Models(id),"
+      "FOREIGN KEY (firmware_version_id) REFERENCES FirmwareVersions(id));",
+
+      "CREATE TABLE IF NOT EXISTS PhysicalDeviceValues ("
+      "id INTEGER PRIMARY KEY AUTOINCREMENT,"
+      "physical_device_id INTEGER NOT NULL,"
+      "feature_id INTEGER NOT NULL,"
+      "value TEXT,"
+      "FOREIGN KEY (physical_device_id) REFERENCES PhysicalDevices(id) ON "
+      "DELETE "
+      "CASCADE,"
+      "FOREIGN KEY (feature_id) REFERENCES Features(id) ON DELETE CASCADE,"
+      "UNIQUE(physical_device_id, feature_id));"}}};
+
 } // namespace Schema

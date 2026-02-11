@@ -58,6 +58,25 @@ struct FeatureRecord {
   int parent_feature_id;
 };
 
+struct PhysicalDeviceRecord {
+  int64_t id;
+  std::string name;
+  int device_id;
+  int model_id;
+  int firmware_version_id;
+  std::string identifier;
+  std::string description;
+  std::string comment;
+  bool is_template;
+};
+
+struct PhysicalDeviceValueRecord {
+  int id;
+  int physical_device_id;
+  int feature_id;
+  std::string value;
+};
+
 class DeviceManager {
 public:
   DeviceManager(const std::string &dbPath);
@@ -159,8 +178,6 @@ public:
     std::string component_type;
     std::vector<ComponentLimitRecord> limits;
     std::vector<ComponentOptionRecord> options;
-    std::vector<TranslationRecord> on_translations;
-    std::vector<TranslationRecord> off_translations;
     std::vector<FeatureComponentRecord> children;
   };
 
@@ -180,7 +197,22 @@ public:
   std::vector<ComponentOptionRecord>
   getComponentOptions(int featureComponentId);
 
+  // PhysicalDevice methods
+  int64_t addPhysicalDevice(const PhysicalDeviceRecord &record);
+  bool updatePhysicalDevice(const PhysicalDeviceRecord &record);
+  bool deletePhysicalDevice(int64_t id);
+  std::vector<PhysicalDeviceRecord> getAllPhysicalDevices();
+  std::optional<PhysicalDeviceRecord> getPhysicalDeviceById(int64_t id);
+
+  // PhysicalDeviceValue methods
+  bool setPhysicalDeviceValue(int64_t physicalDeviceId, int featureId,
+                              const std::string &value);
+  std::string getPhysicalDeviceValue(int64_t physicalDeviceId, int featureId);
+  std::vector<PhysicalDeviceValueRecord>
+  getValuesForPhysicalDevice(int64_t physicalDeviceId);
+
   // Population method
+
   bool populateSampleLayoutData();
 
 private:

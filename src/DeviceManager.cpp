@@ -1003,19 +1003,32 @@ DeviceManager::getScreenLayout(int serviceDeviceModelFirmwareId) {
                 sqlite3_column_text(limitStmt, 0));
             lim.value = reinterpret_cast<const char *>(
                 sqlite3_column_text(limitStmt, 1));
-            rec.limits.push_back(lim);
 
+            // Store ON/OFF labels as ComponentOptions instead of limits
             if (lim.key == "ON_LABEL") {
-              rec.on_translations = getTranslationsForKey(lim.value);
+              ComponentOptionRecord onOpt;
+              onOpt.value = "ON";
+              onOpt.description_key = lim.value;
+              onOpt.translations = getTranslationsForKey(lim.value);
+              rec.options.push_back(onOpt);
             } else if (lim.key == "OFF_LABEL") {
-              rec.off_translations = getTranslationsForKey(lim.value);
+              ComponentOptionRecord offOpt;
+              offOpt.value = "OFF";
+              offOpt.description_key = lim.value;
+              offOpt.translations = getTranslationsForKey(lim.value);
+              rec.options.push_back(offOpt);
+            } else {
+              // Regular limits (MIN_VALUE, MAX_VALUE, etc.)
+              rec.limits.push_back(lim);
             }
           }
         }
         sqlite3_finalize(limitStmt);
 
-        // Get options for this component
-        rec.options = getComponentOptions(fcId);
+        // Get regular options for this component (for COMBOBOX, etc.)
+        auto comboOptions = getComponentOptions(fcId);
+        rec.options.insert(rec.options.end(), comboOptions.begin(),
+                           comboOptions.end());
       }
       featureMap[rec.feature_id] = rec;
     }
@@ -1144,4 +1157,194 @@ DeviceManager::getComponentOptions(int featureComponentId) {
     sqlite3_finalize(stmt);
   }
   return options;
+}
+
+int64_t DeviceManager::addPhysicalDevice(const PhysicalDeviceRecord &record) {
+  const char *sql = "INSERT INTO PhysicalDevices (name, device_id, model_id, "
+                    "firmware_version_id, identifier, description, comment, "
+                    "is_template) VALUES (?, ?, ?, ?, ?, ?, ?, ?);";
+  sqlite3_stmt *stmt;
+  if (sqlite3_prepare_v2(db, sql, -1, &stmt, nullptr) != SQLITE_OK)
+    return 0;
+
+  sqlite3_bind_text(stmt, 1, record.name.c_str(), -1, SQLITE_TRANSIENT);
+  sqlite3_bind_int(stmt, 2, record.device_id);
+  sqlite3_bind_int(stmt, 3, record.model_id);
+  sqlite3_bind_int(stmt, 4, record.firmware_version_id);
+  sqlite3_bind_text(stmt, 5, record.identifier.c_str(), -1, SQLITE_TRANSIENT);
+  sqlite3_bind_text(stmt, 6, record.description.c_str(), -1, SQLITE_TRANSIENT);
+  sqlite3_bind_text(stmt, 7, record.comment.c_str(), -1, SQLITE_TRANSIENT);
+  sqlite3_bind_int(stmt, 8, record.is_template ? 1 : 0);
+
+  int rc = sqlite3_step(stmt);
+  int64_t id = 0;
+  if (rc == SQLITE_DONE) {
+    id = sqlite3_last_insert_rowid(db);
+  }
+  sqlite3_finalize(stmt);
+  return id;
+}
+
+bool DeviceManager::updatePhysicalDevice(const PhysicalDeviceRecord &record) {
+  const char *sql =
+      "UPDATE PhysicalDevices SET name = ?, device_id = ?, "
+      "model_id = ?, firmware_version_id = ?, identifier = ?, "
+      "description = ?, comment = ?, is_template = ? WHERE id = ?;";
+  sqlite3_stmt *stmt;
+  if (sqlite3_prepare_v2(db, sql, -1, &stmt, nullptr) != SQLITE_OK)
+    return false;
+
+  sqlite3_bind_text(stmt, 1, record.name.c_str(), -1, SQLITE_TRANSIENT);
+  sqlite3_bind_int(stmt, 2, record.device_id);
+  sqlite3_bind_int(stmt, 3, record.model_id);
+  sqlite3_bind_int(stmt, 4, record.firmware_version_id);
+  sqlite3_bind_text(stmt, 5, record.identifier.c_str(), -1, SQLITE_TRANSIENT);
+  sqlite3_bind_text(stmt, 6, record.description.c_str(), -1, SQLITE_TRANSIENT);
+  sqlite3_bind_text(stmt, 7, record.comment.c_str(), -1, SQLITE_TRANSIENT);
+  sqlite3_bind_int(stmt, 8, record.is_template ? 1 : 0);
+  sqlite3_bind_int64(stmt, 9, record.id);
+
+  int rc = sqlite3_step(stmt);
+  sqlite3_finalize(stmt);
+  return rc == SQLITE_DONE;
+}
+
+bool DeviceManager::deletePhysicalDevice(int64_t id) {
+  const char *sql = "DELETE FROM PhysicalDevices WHERE id = ?;";
+  sqlite3_stmt *stmt;
+  if (sqlite3_prepare_v2(db, sql, -1, &stmt, nullptr) != SQLITE_OK)
+    return false;
+
+  sqlite3_bind_int64(stmt, 1, id);
+  int rc = sqlite3_step(stmt);
+  sqlite3_finalize(stmt);
+  return rc == SQLITE_DONE;
+}
+
+std::vector<PhysicalDeviceRecord> DeviceManager::getAllPhysicalDevices() {
+  std::vector<PhysicalDeviceRecord> devices;
+  const char *sql =
+      "SELECT id, name, device_id, model_id, firmware_version_id, "
+      "identifier, description, comment, is_template FROM "
+      "PhysicalDevices;";
+  sqlite3_stmt *stmt;
+
+  if (sqlite3_prepare_v2(db, sql, -1, &stmt, nullptr) == SQLITE_OK) {
+    while (sqlite3_step(stmt) == SQLITE_ROW) {
+      PhysicalDeviceRecord rec;
+      rec.id = sqlite3_column_int64(stmt, 0);
+      rec.name = reinterpret_cast<const char *>(sqlite3_column_text(stmt, 1));
+      rec.device_id = sqlite3_column_int(stmt, 2);
+      rec.model_id = sqlite3_column_int(stmt, 3);
+      rec.firmware_version_id = sqlite3_column_int(stmt, 4);
+      rec.identifier =
+          reinterpret_cast<const char *>(sqlite3_column_text(stmt, 5));
+      rec.description =
+          reinterpret_cast<const char *>(sqlite3_column_text(stmt, 6));
+      rec.comment =
+          reinterpret_cast<const char *>(sqlite3_column_text(stmt, 7));
+      rec.is_template = sqlite3_column_int(stmt, 8) != 0;
+      devices.push_back(rec);
+    }
+    sqlite3_finalize(stmt);
+  }
+  return devices;
+}
+
+std::optional<PhysicalDeviceRecord>
+DeviceManager::getPhysicalDeviceById(int64_t id) {
+  const char *sql =
+      "SELECT id, name, device_id, model_id, firmware_version_id, "
+      "identifier, description, comment, is_template FROM "
+      "PhysicalDevices WHERE id = ?;";
+  sqlite3_stmt *stmt;
+
+  if (sqlite3_prepare_v2(db, sql, -1, &stmt, nullptr) == SQLITE_OK) {
+    sqlite3_bind_int64(stmt, 1, id);
+    if (sqlite3_step(stmt) == SQLITE_ROW) {
+      PhysicalDeviceRecord rec;
+      rec.id = sqlite3_column_int64(stmt, 0);
+      rec.name = reinterpret_cast<const char *>(sqlite3_column_text(stmt, 1));
+      rec.device_id = sqlite3_column_int(stmt, 2);
+      rec.model_id = sqlite3_column_int(stmt, 3);
+      rec.firmware_version_id = sqlite3_column_int(stmt, 4);
+      rec.identifier =
+          reinterpret_cast<const char *>(sqlite3_column_text(stmt, 5));
+      rec.description =
+          reinterpret_cast<const char *>(sqlite3_column_text(stmt, 6));
+      rec.comment =
+          reinterpret_cast<const char *>(sqlite3_column_text(stmt, 7));
+      rec.is_template = sqlite3_column_int(stmt, 8) != 0;
+      sqlite3_finalize(stmt);
+      return rec;
+    }
+    sqlite3_finalize(stmt);
+  }
+  return std::nullopt;
+}
+
+bool DeviceManager::setPhysicalDeviceValue(int64_t physicalDeviceId,
+                                           int featureId,
+                                           const std::string &value) {
+  const char *sql = "INSERT INTO PhysicalDeviceValues (physical_device_id, "
+                    "feature_id, value) VALUES (?, ?, ?) "
+                    "ON CONFLICT(physical_device_id, feature_id) DO UPDATE SET "
+                    "value = excluded.value;";
+  sqlite3_stmt *stmt;
+  if (sqlite3_prepare_v2(db, sql, -1, &stmt, nullptr) != SQLITE_OK)
+    return false;
+
+  sqlite3_bind_int64(stmt, 1, physicalDeviceId);
+  sqlite3_bind_int(stmt, 2, featureId);
+  sqlite3_bind_text(stmt, 3, value.c_str(), -1, SQLITE_TRANSIENT);
+
+  int rc = sqlite3_step(stmt);
+  sqlite3_finalize(stmt);
+  return rc == SQLITE_DONE;
+}
+
+std::string DeviceManager::getPhysicalDeviceValue(int64_t physicalDeviceId,
+                                                  int featureId) {
+  const char *sql = "SELECT value FROM PhysicalDeviceValues WHERE "
+                    "physical_device_id = ? AND feature_id = ?;";
+  sqlite3_stmt *stmt;
+  std::string value = "";
+
+  if (sqlite3_prepare_v2(db, sql, -1, &stmt, nullptr) == SQLITE_OK) {
+    sqlite3_bind_int64(stmt, 1, physicalDeviceId);
+    sqlite3_bind_int(stmt, 2, featureId);
+    if (sqlite3_step(stmt) == SQLITE_ROW) {
+      const char *val =
+          reinterpret_cast<const char *>(sqlite3_column_text(stmt, 0));
+      if (val)
+        value = val;
+    }
+    sqlite3_finalize(stmt);
+  }
+  return value;
+}
+
+std::vector<PhysicalDeviceValueRecord>
+DeviceManager::getValuesForPhysicalDevice(int64_t physicalDeviceId) {
+  std::vector<PhysicalDeviceValueRecord> values;
+  const char *sql = "SELECT id, physical_device_id, feature_id, value FROM "
+                    "PhysicalDeviceValues WHERE physical_device_id = ?;";
+  sqlite3_stmt *stmt;
+
+  if (sqlite3_prepare_v2(db, sql, -1, &stmt, nullptr) == SQLITE_OK) {
+    sqlite3_bind_int64(stmt, 1, physicalDeviceId);
+    while (sqlite3_step(stmt) == SQLITE_ROW) {
+      PhysicalDeviceValueRecord rec;
+      rec.id = sqlite3_column_int(stmt, 0);
+      rec.physical_device_id = static_cast<int>(sqlite3_column_int64(stmt, 1));
+      rec.feature_id = sqlite3_column_int(stmt, 2);
+      const char *val =
+          reinterpret_cast<const char *>(sqlite3_column_text(stmt, 3));
+      if (val)
+        rec.value = val;
+      values.push_back(rec);
+    }
+    sqlite3_finalize(stmt);
+  }
+  return values;
 }

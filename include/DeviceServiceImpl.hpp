@@ -88,6 +88,14 @@ public:
   GetDeviceInformation(grpc::ServerContext *context,
                        const DeviceInformationRequest *request,
                        DeviceInformationResponse *response) override;
+  grpc::Status
+  ComparePhysicalDevices(grpc::ServerContext *context,
+                         const ComparePhysicalDevicesRequest *request,
+                         ComparePhysicalDevicesResponse *response) override;
+  grpc::Status
+  GetAllPhysicalDevices(grpc::ServerContext *context,
+                        const GetAllPhysicalDevicesRequest *request,
+                        GetAllPhysicalDevicesResponse *response) override;
 
 private:
   DeviceManager *manager_;
@@ -110,9 +118,18 @@ private:
 
   // Helper to build screen layout recursively
   void populateServiceLayout(const DeviceManager::ServiceLayoutRecord &rec,
-                             ServiceLayout *layout);
+                             ServiceLayout *layout,
+                             const std::map<int, std::string> &savedValues);
   void populateFeatureDetail(const DeviceManager::FeatureComponentRecord &rec,
-                             FeatureComponentDetail *detail);
+                             FeatureComponentDetail *detail,
+                             const std::map<int, std::string> &savedValues);
+
+  // Helper to build physical device comparison tree
+  bool buildPhysicalComparisonNode(const ServiceNodeInfo &info, int64_t id1,
+                                   int64_t id2,
+                                   const std::map<int, std::string> &valMap1,
+                                   const std::map<int, std::string> &valMap2,
+                                   PhysicalDeviceServiceComparison *node);
 };
 
 } // namespace device
