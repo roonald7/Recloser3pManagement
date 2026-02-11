@@ -132,4 +132,16 @@ private:
                                    PhysicalDeviceServiceComparison *node);
 };
 
+class RecordServiceImpl final : public RecordService::Service {
+public:
+  explicit RecordServiceImpl(DeviceManager *manager);
+
+  grpc::Status GetAllRecords(grpc::ServerContext *context,
+                             const GetAllRecordsRequest *request,
+                             GetAllRecordsResponse *response) override;
+
+private:
+  DeviceManager *manager_;
+};
+
 } // namespace device

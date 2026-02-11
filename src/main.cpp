@@ -8,12 +8,15 @@
 
 void RunServer(DeviceManager *manager, const std::string &server_address) {
   device::DeviceServiceImpl service(manager);
+  device::RecordServiceImpl recordService(manager);
 
   grpc::ServerBuilder builder;
   builder.AddListeningPort(server_address, grpc::InsecureServerCredentials());
   builder.RegisterService(&service);
+  builder.RegisterService(&recordService);
 
   std::unique_ptr<grpc::Server> server(builder.BuildAndStart());
+
   std::cout << "gRPC Server listening on " << server_address << std::endl;
 
   server->Wait();

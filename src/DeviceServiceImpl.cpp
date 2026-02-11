@@ -807,4 +807,59 @@ grpc::Status DeviceServiceImpl::GetAllPhysicalDevices(
   return grpc::Status::OK;
 }
 
+RecordServiceImpl::RecordServiceImpl(DeviceManager *manager)
+    : manager_(manager) {}
+
+grpc::Status
+RecordServiceImpl::GetAllRecords(grpc::ServerContext *context,
+                                 const GetAllRecordsRequest *request,
+                                 GetAllRecordsResponse *response) {
+  std::cout << "GetAllRecords called" << std::endl;
+
+  auto devices = manager_->getAllPhysicalDevices();
+  for (const auto &d : devices) {
+    auto *rec = response->add_records();
+    rec->set_id(d.id);
+    rec->set_name(d.name);
+    rec->set_identifier(d.identifier);
+
+    // Get names for device, model, firmware
+    auto dev = manager_->getDeviceById(d.device_id);
+    if (dev)
+      rec->set_device_name(manager_->getTranslation(dev->description_key,
+                                                    request->language_code()));
+
+    auto mod = manager_->getModelById(d.model_id);
+    if (mod)
+      rec->set_model_name(manager_->getTranslation(mod->description_key,
+                                                   request->language_code()));
+
+    auto fw = manager_->getFirmwareVersionById(d.firmware_version_id);
+    if (fw)
+      rec->set_firmware_name(manager_->getTranslation(
+          fw->description_key, request->language_code()));
+
+    // Get all values
+    auto values = manager_->getValuesForPhysicalDevice(d.id);
+    for (const auto &v : values) {
+      auto *val = rec->add_values();
+      val->set_feature_id(v.feature_id);
+      val->set_value(v.value);
+
+      auto feat = manager_->getFeatureById(v.feature_id);
+      if (feat) {
+        val->set_feature_key(feat->description_key);
+        auto translations =
+            manager_->getTranslationsForKey(feat->description_key);
+        for (const auto &t : translations) {
+          auto *trans = val->add_translations();
+          trans->set_language_code(t.language_code);
+          trans->set_value(t.value);
+        }
+      }
+    }
+  }
+  return grpc::Status::OK;
+}
+
 } // namespace device

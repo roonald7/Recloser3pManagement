@@ -273,3 +273,30 @@ message GetAllPhysicalDevicesRequest {}
 message GetAllPhysicalDevicesResponse {
   repeated PhysicalDevice physical_devices = 1;
 }
+
+service RecordService {
+  rpc GetAllRecords(GetAllRecordsRequest) returns (GetAllRecordsResponse);
+}
+
+message GetAllRecordsRequest { string language_code = 1; }
+
+message PhysicalDeviceRecordDetailed {
+  int64 id = 1;
+  string name = 2;
+  string identifier = 3;
+  string device_name = 4;
+  string model_name = 5;
+  string firmware_name = 6;
+  repeated PhysicalDeviceValue values = 7;
+}
+
+message GetAllRecordsResponse {
+  repeated PhysicalDeviceRecordDetailed records = 1;
+}
+
+message PhysicalDeviceValue {
+  int32 feature_id = 1;
+  string feature_key = 2;
+  repeated Translation translations = 3;
+  string value = 4;
+}
