@@ -235,6 +235,38 @@ void initialize_zeus_ng(DeviceManager *manager) {
 
   manager->linkFeatureToComponent(fWinDate, "Date");
   manager->linkFeatureToComponent(fWinTime, "Time");
+
+  // Create Zeus V1 Physical Device
+  PhysicalDeviceRecord zeusV2_a;
+  zeusV2_a.name = "Zeus V2 Unit A";
+  zeusV2_a.device_id = 1; // Zeus NG
+  zeusV2_a.model_id = 1;  // 3P/4W
+  zeusV2_a.firmware_version_id = fwV2;
+  zeusV2_a.identifier = "SN-ZV2-001";
+  zeusV2_a.description = "Zeus Unit running Firmware V2";
+  zeusV2_a.is_template = false;
+  int64_t zid1 = manager->addPhysicalDevice(zeusV2_a);
+  if (zid1 > 0) {
+    manager->setPhysicalDeviceValue(zid1, fDateV2, "2023-01-01");
+    manager->setPhysicalDeviceValue(zid1, fTimeV2, "12:00:00");
+    manager->setPhysicalDeviceValue(zid1, fGmtV2, "1");
+  }
+
+  // Create Zeus V2 Physical Device
+  PhysicalDeviceRecord zeusV2_b;
+  zeusV2_b.name = "Zeus V2 Unit B";
+  zeusV2_b.device_id = 1; // Zeus NG
+  zeusV2_b.model_id = 1;  // 3P/4W
+  zeusV2_b.firmware_version_id = fwV2;
+  zeusV2_b.identifier = "SN-ZV2-002";
+  zeusV2_b.description = "Zeus Unit running Firmware V2";
+  zeusV2_b.is_template = false;
+  int64_t zid2 = manager->addPhysicalDevice(zeusV2_b);
+  if (zid2 > 0) {
+    manager->setPhysicalDeviceValue(zid2, fDateV2, "2024-02-11");
+    manager->setPhysicalDeviceValue(zid2, fTimeV2, "09:55:00");
+    manager->setPhysicalDeviceValue(zid2, fGmtV2, "-3");
+  }
 }
 
 void initialize_recloser_3p(DeviceManager *manager) {
