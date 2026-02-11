@@ -45,18 +45,25 @@ const std::vector<std::string> INITIALIZATION_SQL = {
     "(description_key) REFERENCES Descriptions(key), FOREIGN KEY (parent_id) "
     "REFERENCES Services(id) ON DELETE CASCADE);",
 
-    "CREATE TABLE IF NOT EXISTS Features (id INTEGER PRIMARY KEY "
-    "AUTOINCREMENT, description_key TEXT NOT NULL, "
-    "service_id INTEGER NOT NULL, "
-    "model_firmware_id INTEGER NOT NULL, "
-    "parent_feature_id INTEGER, "
-    "FOREIGN KEY (description_key) REFERENCES Descriptions(key), "
+    "CREATE TABLE IF NOT EXISTS ServiceModelFirmware (id INTEGER PRIMARY KEY "
+    "AUTOINCREMENT, service_id INTEGER NOT NULL, model_firmware_id INTEGER "
+    "NOT NULL, "
     "FOREIGN KEY (service_id) REFERENCES Services(id) ON DELETE CASCADE, "
     "FOREIGN KEY (model_firmware_id) REFERENCES ModelFirmware(id) ON DELETE "
     "CASCADE, "
+    "UNIQUE(service_id, model_firmware_id));",
+
+    "CREATE TABLE IF NOT EXISTS Features (id INTEGER PRIMARY KEY "
+    "AUTOINCREMENT, description_key TEXT NOT NULL, "
+    "service_model_firmware_id INTEGER NOT NULL, "
+    "parent_feature_id INTEGER, "
+    "FOREIGN KEY (description_key) REFERENCES Descriptions(key), "
+    "FOREIGN KEY (service_model_firmware_id) REFERENCES "
+    "ServiceModelFirmware(id) "
+    "ON DELETE CASCADE, "
     "FOREIGN KEY (parent_feature_id) REFERENCES Features(id) ON DELETE "
     "CASCADE, "
-    "UNIQUE(service_id, model_firmware_id, description_key));",
+    "UNIQUE(service_model_firmware_id, description_key));",
 
     "CREATE TABLE IF NOT EXISTS Component (id INTEGER PRIMARY KEY "
     "AUTOINCREMENT, type TEXT UNIQUE NOT NULL);",

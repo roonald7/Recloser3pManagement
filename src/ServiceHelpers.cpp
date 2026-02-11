@@ -67,13 +67,16 @@ ServiceNodeInfo ServiceHelpers::buildServiceNode(DeviceManager *manager,
   node.translations =
       manager->getTranslationsForKey(serviceOpt->description_key);
 
-  auto features =
-      manager->getFeaturesByServiceAndModelFirmware(serviceId, dmfId);
-  for (const auto &feat : features) {
-    FeatureInfo fi;
-    fi.record = feat;
-    fi.translations = manager->getTranslationsForKey(feat.description_key);
-    node.features.push_back(fi);
+  // Get the junction ID for features retrieval
+  int smfId = manager->getServiceModelFirmwareId(serviceId, dmfId);
+  if (smfId > 0) {
+    auto features = manager->getFeaturesByServiceModelFirmware(smfId);
+    for (const auto &feat : features) {
+      FeatureInfo fi;
+      fi.record = feat;
+      fi.translations = manager->getTranslationsForKey(feat.description_key);
+      node.features.push_back(fi);
+    }
   }
 
   auto children =

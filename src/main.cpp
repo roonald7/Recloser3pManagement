@@ -132,24 +132,22 @@ void initialize_zeus_ng(DeviceManager *manager) {
   int sMultiplicationConstants =
       manager->addService("MULTIPLICATION_CONSTANTS", 0);
 
-  // 2 & 3. Services are now linked via Features table directly.
-  // No need for linkServiceToModelFirmware.
+  // Link Services to ModelFirmware
+  int smfV1DateTime = manager->linkServiceToModelFirmware(sDateTime, dmfV1M1);
+  int smfV1MultConst =
+      manager->linkServiceToModelFirmware(sMultiplicationConstants, dmfV1M1);
 
   // Add Features to Model 1 / Firmware v1
-  int fDateV1 = manager->addFeature("DATE", sDateTime, dmfV1M1);
-  int fTimeV1 = manager->addFeature("TIME", sDateTime, dmfV1M1);
+  int fDateV1 = manager->addFeature("DATE", smfV1DateTime);
+  int fTimeV1 = manager->addFeature("TIME", smfV1DateTime);
   manager->linkFeatureToComponent(fDateV1, "Date");
   manager->linkFeatureToComponent(fTimeV1, "Time");
 
-  // Add Features to Model 1 / Firmware v1
-  int fNumTcV1 =
-      manager->addFeature("NUM_TC", sMultiplicationConstants, dmfV1M1);
-  int fDenTcV1 =
-      manager->addFeature("DEN_TC", sMultiplicationConstants, dmfV1M1);
-  int fNumTpV1 =
-      manager->addFeature("NUM_TP", sMultiplicationConstants, dmfV1M1);
-  int fDenTpV1 =
-      manager->addFeature("DEN_TP", sMultiplicationConstants, dmfV1M1);
+  // Add Features to Model 1 / Firmware v1 using sMultiplicationConstants link
+  int fNumTcV1 = manager->addFeature("NUM_TC", smfV1MultConst);
+  int fDenTcV1 = manager->addFeature("DEN_TC", smfV1MultConst);
+  int fNumTpV1 = manager->addFeature("NUM_TP", smfV1MultConst);
+  int fDenTpV1 = manager->addFeature("DEN_TP", smfV1MultConst);
 
   int fcNmTcV1 = manager->linkFeatureToComponent(fNumTcV1, "Integer");
   int fcDnTcV1 = manager->linkFeatureToComponent(fDenTcV1, "Integer");
@@ -167,11 +165,15 @@ void initialize_zeus_ng(DeviceManager *manager) {
   manager->addComponentLimit(fcNmTcV1, "DEFAULT_VALUE", "5");
   manager->addComponentLimit(fcNmTcV1, "STEP", "5");
 
+  // For V2:
+  int smfV2DateTime = manager->linkServiceToModelFirmware(sDateTime, dmfV2M1);
+  int smfV2MultConst =
+      manager->linkServiceToModelFirmware(sMultiplicationConstants, dmfV2M1);
+
   // Add Features to Model 1 / Firmware v2
-  int fDateV2 = manager->addFeature("DATE", sDateTime, dmfV2M1);
-  int fTimeV2 = manager->addFeature("TIME", sDateTime, dmfV2M1);
-  int fGmtV2 =
-      manager->addFeature("GMT", sDateTime, dmfV2M1); // Only v2 has gmt !
+  int fDateV2 = manager->addFeature("DATE", smfV2DateTime);
+  int fTimeV2 = manager->addFeature("TIME", smfV2DateTime);
+  int fGmtV2 = manager->addFeature("GMT", smfV2DateTime); // Only v2 has gmt !
 
   manager->linkFeatureToComponent(fDateV2, "Date");
   manager->linkFeatureToComponent(fTimeV2, "Time");
@@ -182,18 +184,12 @@ void initialize_zeus_ng(DeviceManager *manager) {
   manager->addComponentLimit(fcGmtV2, "DEFAULT_VALUE", "0");
   manager->addComponentLimit(fcGmtV2, "STEP", "1");
 
-  int fTcWindow =
-      manager->addFeature("TC_WINDOW", sMultiplicationConstants, dmfV2M1);
-  int fTpWindow =
-      manager->addFeature("TP_WINDOW", sMultiplicationConstants, dmfV2M1);
-  int fNumTcV2 = manager->addFeature("NUM_TC", sMultiplicationConstants,
-                                     dmfV2M1, fTcWindow);
-  int fDenTcV2 = manager->addFeature("DEN_TC", sMultiplicationConstants,
-                                     dmfV2M1, fTcWindow);
-  int fNumTpV2 = manager->addFeature("NUM_TP", sMultiplicationConstants,
-                                     dmfV2M1, fTpWindow);
-  int fDenTpV2 = manager->addFeature("DEN_TP", sMultiplicationConstants,
-                                     dmfV2M1, fTpWindow);
+  int fTcWindow = manager->addFeature("TC_WINDOW", smfV2MultConst);
+  int fTpWindow = manager->addFeature("TP_WINDOW", smfV2MultConst);
+  int fNumTcV2 = manager->addFeature("NUM_TC", smfV2MultConst, fTcWindow);
+  int fDenTcV2 = manager->addFeature("DEN_TC", smfV2MultConst, fTcWindow);
+  int fNumTpV2 = manager->addFeature("NUM_TP", smfV2MultConst, fTpWindow);
+  int fDenTpV2 = manager->addFeature("DEN_TP", smfV2MultConst, fTpWindow);
 
   manager->linkFeatureToComponent(fTcWindow, "Window");
   manager->linkFeatureToComponent(fTpWindow, "Window");
@@ -216,15 +212,16 @@ void initialize_zeus_ng(DeviceManager *manager) {
   int dmfV3M1 = manager->linkFirmwareToModel(fwV3, 1);
   int sAdvanced =
       manager->addService("ADVANCED_SETTINGS", 0); // Top levelService
-  // No linkServiceToModelFirmware needed.
+
+  int smfV3Adv = manager->linkServiceToModelFirmware(sAdvanced, dmfV3M1);
 
   // Create a Window Feature
-  int fWindow = manager->addFeature("SETTINGS_WINDOW", sAdvanced, dmfV3M1);
+  int fWindow = manager->addFeature("SETTINGS_WINDOW", smfV3Adv);
   manager->linkFeatureToComponent(fWindow, "Window");
 
   // Add child features to the Window (using new parent_feature_id arg)
-  int fWinDate = manager->addFeature("WIN_DATE", sAdvanced, dmfV3M1, fWindow);
-  int fWinTime = manager->addFeature("WIN_TIME", sAdvanced, dmfV3M1, fWindow);
+  int fWinDate = manager->addFeature("WIN_DATE", smfV3Adv, fWindow);
+  int fWinTime = manager->addFeature("WIN_TIME", smfV3Adv, fWindow);
 
   manager->linkFeatureToComponent(fWinDate, "Date");
   manager->linkFeatureToComponent(fWinTime, "Time");
@@ -331,14 +328,18 @@ void initialize_recloser_3p(DeviceManager *manager) {
   int sOvervoltageStage1Config = manager->addService(
       "SERV_OVERVOLTAGE_STAGE_1_CONFIG", sProtectionParameters);
 
-  // 2. Services are now linked via Features table directly.
-  // No linkServiceToModelFirmware needed.
+  // Link Services to ModelFirmware
+  manager->linkServiceToModelFirmware(sProtectionParameters, dmfV1R3P);
+  int smfBasProt =
+      manager->linkServiceToModelFirmware(sBasicProtectionConfig, dmfV1R3P);
+  int smfOvVstage1 =
+      manager->linkServiceToModelFirmware(sOvervoltageStage1Config, dmfV1R3P);
 
   // Add Features to Model R3P / Firmware v1
-  int fEnabledAutomaticResetV1 = manager->addFeature(
-      "ENABLED_AUTOMATIC_RESET", sBasicProtectionConfig, dmfV1R3P);
-  int fAutomaticResetTimeV1 = manager->addFeature(
-      "AUTOMATIC_RESET_TIME", sBasicProtectionConfig, dmfV1R3P);
+  int fEnabledAutomaticResetV1 =
+      manager->addFeature("ENABLED_AUTOMATIC_RESET", smfBasProt);
+  int fAutomaticResetTimeV1 =
+      manager->addFeature("AUTOMATIC_RESET_TIME", smfBasProt);
   int fcEnabledAutomaticResetV1 =
       manager->linkFeatureToComponent(fEnabledAutomaticResetV1, "Toggle");
   int fcAutomaticResetTimeV1 =
@@ -350,10 +351,10 @@ void initialize_recloser_3p(DeviceManager *manager) {
   manager->addComponentLimit(fcAutomaticResetTimeV1, "DEFAULT_VALUE", "5");
 
   // Add Features to Model R3P / Firmware v1
-  int fEnabledOvervoltageStage1V1 = manager->addFeature(
-      "ENABLED_OVERVOLTAGE_STAGE_1", sOvervoltageStage1Config, dmfV1R3P);
-  int fOvervoltageStage1ThresholdV1 = manager->addFeature(
-      "OVERVOLTAGE_STAGE_1_THRESHOLD", sOvervoltageStage1Config, dmfV1R3P);
+  int fEnabledOvervoltageStage1V1 =
+      manager->addFeature("ENABLED_OVERVOLTAGE_STAGE_1", smfOvVstage1);
+  int fOvervoltageStage1ThresholdV1 =
+      manager->addFeature("OVERVOLTAGE_STAGE_1_THRESHOLD", smfOvVstage1);
   int fcEnabledOvervoltageStage1V1 =
       manager->linkFeatureToComponent(fEnabledOvervoltageStage1V1, "Toggle");
   int fcOvervoltageStage1ThresholdV1 =
@@ -367,8 +368,8 @@ void initialize_recloser_3p(DeviceManager *manager) {
                              "5");
 
   // Add a ComboBox example: Automatic Reclose Attempts
-  int fRecloseAttempts = manager->addFeature("AUTOMATIC_RECLOSE_ATTEMPTS",
-                                             sBasicProtectionConfig, dmfV1R3P);
+  int fRecloseAttempts =
+      manager->addFeature("AUTOMATIC_RECLOSE_ATTEMPTS", smfBasProt);
   int fcRecloseAttempts =
       manager->linkFeatureToComponent(fRecloseAttempts, "ComboBox");
 

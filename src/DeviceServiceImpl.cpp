@@ -131,19 +131,21 @@ void DeviceServiceImpl::buildServiceNode(int parentId, int mfId,
     }
 
     // Get features for this child service-firmware combination
-    auto features =
-        manager_->getFeaturesByServiceAndModelFirmware(service.id, mfId);
-    for (const auto &feat : features) {
-      Feature *feature = childNode->add_features();
-      feature->set_id(feat.id);
-      feature->set_feature_key(feat.description_key);
+    int smfId = manager_->getServiceModelFirmwareId(service.id, mfId);
+    if (smfId > 0) {
+      auto features = manager_->getFeaturesByServiceModelFirmware(smfId);
+      for (const auto &feat : features) {
+        Feature *feature = childNode->add_features();
+        feature->set_id(feat.id);
+        feature->set_feature_key(feat.description_key);
 
-      auto fTranslations =
-          manager_->getTranslationsForKey(feat.description_key);
-      for (const auto &t : fTranslations) {
-        auto *trans = feature->add_translations();
-        trans->set_language_code(t.language_code);
-        trans->set_value(t.value);
+        auto fTranslations =
+            manager_->getTranslationsForKey(feat.description_key);
+        for (const auto &t : fTranslations) {
+          auto *trans = feature->add_translations();
+          trans->set_language_code(t.language_code);
+          trans->set_value(t.value);
+        }
       }
     }
     // Recursively build grandchildren
@@ -165,10 +167,12 @@ void DeviceServiceImpl::buildInternalTree(
         manager_->getTranslation(service.description_key, languageCode);
 
     // Get features for this service-firmware combination
-    auto features =
-        manager_->getFeaturesByServiceAndModelFirmware(service.id, dmfId);
-    for (const auto &feat : features) {
-      node.features.insert(feat.description_key);
+    int smfId = manager_->getServiceModelFirmwareId(service.id, dmfId);
+    if (smfId > 0) {
+      auto features = manager_->getFeaturesByServiceModelFirmware(smfId);
+      for (const auto &feat : features) {
+        node.features.insert(feat.description_key);
+      }
     }
 
     // Recursively build children
@@ -307,7 +311,19 @@ DeviceServiceImpl::GetScreenLayout(grpc::ServerContext *context,
     }
   }
 
-  auto layoutResult = manager_->getScreenLayout(targetServiceId, dmfId);
+  // Get the service-model-firmware id for the layout
+  int smfId = manager_->getServiceModelFirmwareId(targetServiceId, dmfId);
+  if (smfId <= 0) {
+    // Attempt to link it if it doesn't exist, as it's required for features
+    smfId = manager_->linkServiceToModelFirmware(targetServiceId, dmfId);
+  }
+
+  if (smfId <= 0) {
+    return grpc::Status(grpc::StatusCode::NOT_FOUND,
+                        "Service not linked to this firmware");
+  }
+
+  auto layoutResult = manager_->getScreenLayout(smfId);
 
   if (layoutResult) {
     populateServiceLayout(*layoutResult, response->mutable_service_layout(),
@@ -494,9 +510,8 @@ grpc::Status DeviceServiceImpl::DeleteServiceNode(grpc::ServerContext *context,
 grpc::Status DeviceServiceImpl::CreateFeature(grpc::ServerContext *context,
                                               const FeatureRecord *request,
                                               GenericResponse *response) {
-  bool success =
-      manager_->addFeature(request->description_key(), request->service_id(),
-                           request->model_firmware_id());
+  bool success = manager_->addFeature(request->description_key(),
+                                      request->service_model_firmware_id());
   response->set_success(success);
   response->set_message(success ? "Feature created"
                                 : "Failed to create feature");
@@ -506,9 +521,9 @@ grpc::Status DeviceServiceImpl::CreateFeature(grpc::ServerContext *context,
 grpc::Status DeviceServiceImpl::UpdateFeature(grpc::ServerContext *context,
                                               const FeatureRecord *request,
                                               GenericResponse *response) {
-  bool success = manager_->updateFeature(
-      request->id(), request->description_key(), request->service_id(),
-      request->model_firmware_id());
+  bool success =
+      manager_->updateFeature(request->id(), request->description_key(),
+                              request->service_model_firmware_id());
   response->set_success(success);
   response->set_message(success ? "Feature updated"
                                 : "Failed to update feature");
@@ -589,19 +604,21 @@ DeviceServiceImpl::GetFullInventory(grpc::ServerContext *context,
             trans->set_value(t.value);
           }
 
-          auto features =
-              manager_->getFeaturesByServiceAndModelFirmware(s.id, mfId);
-          for (const auto &feat : features) {
-            Feature *feature = sn->add_features();
-            feature->set_id(feat.id);
-            feature->set_feature_key(feat.description_key);
+          int smfId = manager_->getServiceModelFirmwareId(s.id, mfId);
+          if (smfId > 0) {
+            auto features = manager_->getFeaturesByServiceModelFirmware(smfId);
+            for (const auto &feat : features) {
+              Feature *feature = sn->add_features();
+              feature->set_id(feat.id);
+              feature->set_feature_key(feat.description_key);
 
-            auto ftTranslations =
-                manager_->getTranslationsForKey(feat.description_key);
-            for (const auto &t : ftTranslations) {
-              auto *trans = feature->add_translations();
-              trans->set_language_code(t.language_code);
-              trans->set_value(t.value);
+              auto ftTranslations =
+                  manager_->getTranslationsForKey(feat.description_key);
+              for (const auto &t : ftTranslations) {
+                auto *trans = feature->add_translations();
+                trans->set_language_code(t.language_code);
+                trans->set_value(t.value);
+              }
             }
           }
           buildServiceNode(s.id, mfId, sn);

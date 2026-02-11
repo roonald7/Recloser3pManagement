@@ -86,8 +86,7 @@ message ServiceRecord {
 message FeatureRecord {
   int32 id = 1;
   string description_key = 2;
-  int32 service_id = 3;
-  int32 model_firmware_id = 4;
+  int32 service_model_firmware_id = 3;
 }
 
 message LanguagesRequest {}

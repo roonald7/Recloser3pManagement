@@ -50,8 +50,7 @@ struct ServiceRecord {
 struct FeatureRecord {
   int id;
   std::string description_key;
-  int service_id;
-  int model_firmware_id;
+  int service_model_firmware_id;
   int parent_feature_id;
 };
 
@@ -122,19 +121,22 @@ public:
   int addService(const std::string &descKey, int parentId = 0);
   bool updateService(int id, const std::string &descKey, int parentId = 0);
   bool deleteService(int id);
+  int linkServiceToModelFirmware(int serviceId, int modelFirmwareId);
+  bool unlinkServiceFromModelFirmware(int serviceId, int modelFirmwareId);
+  int getServiceModelFirmwareId(int serviceId, int modelFirmwareId);
   std::vector<ServiceRecord> getAllServices();
   std::vector<ServiceRecord>
   getServicesByParentAndModelFirmware(int parentId, int modelFirmwareId);
   std::optional<ServiceRecord> getServiceById(int id);
 
   // Feature methods
-  int addFeature(const std::string &descKey, int serviceId, int modelFirmwareId,
+  int addFeature(const std::string &descKey, int serviceModelFirmwareId,
                  int parentFeatureId = 0);
-  bool updateFeature(int id, const std::string &descKey, int serviceId,
-                     int modelFirmwareId, int parentFeatureId = 0);
+  bool updateFeature(int id, const std::string &descKey,
+                     int serviceModelFirmwareId, int parentFeatureId = 0);
   bool deleteFeature(int id);
   std::vector<FeatureRecord>
-  getFeaturesByServiceAndModelFirmware(int serviceId, int modelFirmwareId);
+  getFeaturesByServiceModelFirmware(int serviceModelFirmwareId);
   std::optional<FeatureRecord> getFeatureById(int id);
 
   // Component methods
@@ -173,8 +175,8 @@ public:
     std::vector<ServiceLayoutRecord> children;
   };
 
-  std::optional<ServiceLayoutRecord> getScreenLayout(int serviceId,
-                                                     int modelFirmwareId);
+  std::optional<ServiceLayoutRecord>
+  getScreenLayout(int serviceModelFirmwareId);
 
   int addComponentOption(int featureComponentId, const std::string &value,
                          const std::string &descKey);
