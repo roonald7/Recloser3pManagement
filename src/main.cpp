@@ -145,8 +145,6 @@ void initialize_zeus_ng(DeviceManager *manager) {
   int fDenTc = manager->addFeature("DEN_TC");
   int fNumTp = manager->addFeature("NUM_TP");
   int fDenTp = manager->addFeature("DEN_TP");
-  int fTcWindow = manager->addFeature("TC_WINDOW");
-  int fTpWindow = manager->addFeature("TP_WINDOW");
 
   // Add Features to Model 1 / Firmware v1
   int sfDateV1 = manager->addScreenFeature(smfV1DateTime, fDate, "DATE");
@@ -195,10 +193,10 @@ void initialize_zeus_ng(DeviceManager *manager) {
   manager->addComponentLimit(fcGmtV2, "DEFAULT_VALUE", "0");
   manager->addComponentLimit(fcGmtV2, "STEP", "1");
 
-  int sfTcWindowV2 =
-      manager->addScreenFeature(smfV2MultConst, fTcWindow, "TC_WINDOW");
-  int sfTpWindowV2 =
-      manager->addScreenFeature(smfV2MultConst, fTpWindow, "TP_WINDOW");
+  // Add Layout features (0 feature_id)
+  int sfTcWindowV2 = manager->addScreenFeature(smfV2MultConst, 0, "TC_WINDOW");
+  int sfTpWindowV2 = manager->addScreenFeature(smfV2MultConst, 0, "TP_WINDOW");
+
   int sfNumTcV2 =
       manager->addScreenFeature(smfV2MultConst, fNumTc, "NUM_TC", sfTcWindowV2);
   int sfDenTcV2 =
@@ -231,10 +229,8 @@ void initialize_zeus_ng(DeviceManager *manager) {
 
   int smfV3Adv = manager->linkServiceToModelFirmware(sAdvanced, dmfV3M1);
 
-  // Create a Window Feature
-  int fWindow = manager->addFeature("SETTINGS_WINDOW");
-  int sfWindowV3 =
-      manager->addScreenFeature(smfV3Adv, fWindow, "SETTINGS_WINDOW");
+  // Create a Window Layout element (0 feature_id)
+  int sfWindowV3 = manager->addScreenFeature(smfV3Adv, 0, "SETTINGS_WINDOW");
   manager->linkScreenFeatureToComponent(sfWindowV3, "Window");
 
   // Add child features to the Window

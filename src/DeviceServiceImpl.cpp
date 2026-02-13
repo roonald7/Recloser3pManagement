@@ -136,16 +136,17 @@ void DeviceServiceImpl::buildServiceNode(int parentId, int mfId,
       auto screenFeatures =
           manager_->getScreenFeaturesByServiceModelFirmware(smfId);
       for (const auto &sf : screenFeatures) {
-        Feature *feature = childNode->add_features();
-        feature->set_id(sf.feature_id); // Base feature ID
-        feature->set_feature_key(sf.description_key);
-
-        auto fTranslations =
-            manager_->getTranslationsForKey(sf.description_key);
-        for (const auto &t : fTranslations) {
-          auto *trans = feature->add_translations();
-          trans->set_language_code(t.language_code);
-          trans->set_value(t.value);
+        if (sf.feature_id > 0) {
+          Feature *feature = childNode->add_features();
+          feature->set_id(sf.feature_id); // Base feature ID
+          feature->set_feature_key(sf.description_key);
+          auto fTranslations =
+              manager_->getTranslationsForKey(sf.description_key);
+          for (const auto &t : fTranslations) {
+            auto *trans = feature->add_translations();
+            trans->set_language_code(t.language_code);
+            trans->set_value(t.value);
+          }
         }
       }
     }
@@ -173,7 +174,9 @@ void DeviceServiceImpl::buildInternalTree(
       auto screenFeatures =
           manager_->getScreenFeaturesByServiceModelFirmware(smfId);
       for (const auto &sf : screenFeatures) {
-        node.features.insert(sf.description_key);
+        if (sf.feature_id > 0) {
+          node.features.insert(sf.description_key);
+        }
       }
     }
 

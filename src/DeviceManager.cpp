@@ -820,7 +820,10 @@ int DeviceManager::addScreenFeature(int serviceModelFirmwareId, int featureId,
     return 0;
 
   sqlite3_bind_int(stmt, 1, serviceModelFirmwareId);
-  sqlite3_bind_int(stmt, 2, featureId);
+  if (featureId > 0)
+    sqlite3_bind_int(stmt, 2, featureId);
+  else
+    sqlite3_bind_null(stmt, 2);
   sqlite3_bind_text(stmt, 3, descKey.c_str(), -1, SQLITE_TRANSIENT);
   if (parentScreenFeatureId > 0)
     sqlite3_bind_int(stmt, 4, parentScreenFeatureId);
@@ -848,7 +851,10 @@ bool DeviceManager::updateScreenFeature(int id, int serviceModelFirmwareId,
     return false;
 
   sqlite3_bind_int(stmt, 1, serviceModelFirmwareId);
-  sqlite3_bind_int(stmt, 2, featureId);
+  if (featureId > 0)
+    sqlite3_bind_int(stmt, 2, featureId);
+  else
+    sqlite3_bind_null(stmt, 2);
   sqlite3_bind_text(stmt, 3, descKey.c_str(), -1, SQLITE_TRANSIENT);
   if (parentScreenFeatureId > 0)
     sqlite3_bind_int(stmt, 4, parentScreenFeatureId);

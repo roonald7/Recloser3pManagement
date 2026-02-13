@@ -58,7 +58,7 @@ const std::vector<std::string> INITIALIZATION_SQL = {
 
     "CREATE TABLE IF NOT EXISTS ScreenFeature (id INTEGER PRIMARY KEY "
     "AUTOINCREMENT, service_model_firmware_id INTEGER NOT NULL, feature_id "
-    "INTEGER NOT NULL, description_key TEXT NOT NULL, "
+    "INTEGER, description_key TEXT NOT NULL, "
     "parent_screen_feature_id INTEGER, "
     "FOREIGN KEY (service_model_firmware_id) REFERENCES "
     "ServiceModelFirmware(id) ON DELETE CASCADE, "
