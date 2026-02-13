@@ -137,22 +137,33 @@ void initialize_zeus_ng(DeviceManager *manager) {
   int smfV1MultConst =
       manager->linkServiceToModelFirmware(sMultiplicationConstants, dmfV1M1);
 
+  // Define Generic Features
+  int fDate = manager->addFeature("DATE");
+  int fTime = manager->addFeature("TIME");
+  int fGmt = manager->addFeature("GMT");
+  int fNumTc = manager->addFeature("NUM_TC");
+  int fDenTc = manager->addFeature("DEN_TC");
+  int fNumTp = manager->addFeature("NUM_TP");
+  int fDenTp = manager->addFeature("DEN_TP");
+  int fTcWindow = manager->addFeature("TC_WINDOW");
+  int fTpWindow = manager->addFeature("TP_WINDOW");
+
   // Add Features to Model 1 / Firmware v1
-  int fDateV1 = manager->addFeature("DATE", smfV1DateTime);
-  int fTimeV1 = manager->addFeature("TIME", smfV1DateTime);
-  manager->linkFeatureToComponent(fDateV1, "Date");
-  manager->linkFeatureToComponent(fTimeV1, "Time");
+  int sfDateV1 = manager->addScreenFeature(smfV1DateTime, fDate, "DATE");
+  int sfTimeV1 = manager->addScreenFeature(smfV1DateTime, fTime, "TIME");
+  manager->linkScreenFeatureToComponent(sfDateV1, "Date");
+  manager->linkScreenFeatureToComponent(sfTimeV1, "Time");
 
   // Add Features to Model 1 / Firmware v1 using sMultiplicationConstants link
-  int fNumTcV1 = manager->addFeature("NUM_TC", smfV1MultConst);
-  int fDenTcV1 = manager->addFeature("DEN_TC", smfV1MultConst);
-  int fNumTpV1 = manager->addFeature("NUM_TP", smfV1MultConst);
-  int fDenTpV1 = manager->addFeature("DEN_TP", smfV1MultConst);
+  int sfNumTcV1 = manager->addScreenFeature(smfV1MultConst, fNumTc, "NUM_TC");
+  int sfDenTcV1 = manager->addScreenFeature(smfV1MultConst, fDenTc, "DEN_TC");
+  int sfNumTpV1 = manager->addScreenFeature(smfV1MultConst, fNumTp, "NUM_TP");
+  int sfDenTpV1 = manager->addScreenFeature(smfV1MultConst, fDenTp, "DEN_TP");
 
-  int fcNmTcV1 = manager->linkFeatureToComponent(fNumTcV1, "Integer");
-  int fcDnTcV1 = manager->linkFeatureToComponent(fDenTcV1, "Integer");
-  int fcNmTpV1 = manager->linkFeatureToComponent(fNumTpV1, "Integer");
-  int fcDnTpV1 = manager->linkFeatureToComponent(fDenTpV1, "Integer");
+  int fcNmTcV1 = manager->linkScreenFeatureToComponent(sfNumTcV1, "Integer");
+  int fcDnTcV1 = manager->linkScreenFeatureToComponent(sfDenTcV1, "Integer");
+  int fcNmTpV1 = manager->linkScreenFeatureToComponent(sfNumTpV1, "Integer");
+  int fcDnTpV1 = manager->linkScreenFeatureToComponent(sfDenTpV1, "Integer");
 
   manager->addComponentLimit(fcNmTcV1, "MIN_VALUE", "1");
   manager->addComponentLimit(fcNmTcV1, "MAX_VALUE", "10000");
@@ -171,32 +182,38 @@ void initialize_zeus_ng(DeviceManager *manager) {
       manager->linkServiceToModelFirmware(sMultiplicationConstants, dmfV2M1);
 
   // Add Features to Model 1 / Firmware v2
-  int fDateV2 = manager->addFeature("DATE", smfV2DateTime);
-  int fTimeV2 = manager->addFeature("TIME", smfV2DateTime);
-  int fGmtV2 = manager->addFeature("GMT", smfV2DateTime); // Only v2 has gmt !
+  int sfDateV2 = manager->addScreenFeature(smfV2DateTime, fDate, "DATE");
+  int sfTimeV2 = manager->addScreenFeature(smfV2DateTime, fTime, "TIME");
+  int sfGmtV2 = manager->addScreenFeature(smfV2DateTime, fGmt, "GMT");
 
-  manager->linkFeatureToComponent(fDateV2, "Date");
-  manager->linkFeatureToComponent(fTimeV2, "Time");
-  int fcGmtV2 = manager->linkFeatureToComponent(fGmtV2, "Spinner");
+  manager->linkScreenFeatureToComponent(sfDateV2, "Date");
+  manager->linkScreenFeatureToComponent(sfTimeV2, "Time");
+  int fcGmtV2 = manager->linkScreenFeatureToComponent(sfGmtV2, "Spinner");
 
   manager->addComponentLimit(fcGmtV2, "MIN_VALUE", "-12");
   manager->addComponentLimit(fcGmtV2, "MAX_VALUE", "12");
   manager->addComponentLimit(fcGmtV2, "DEFAULT_VALUE", "0");
   manager->addComponentLimit(fcGmtV2, "STEP", "1");
 
-  int fTcWindow = manager->addFeature("TC_WINDOW", smfV2MultConst);
-  int fTpWindow = manager->addFeature("TP_WINDOW", smfV2MultConst);
-  int fNumTcV2 = manager->addFeature("NUM_TC", smfV2MultConst, fTcWindow);
-  int fDenTcV2 = manager->addFeature("DEN_TC", smfV2MultConst, fTcWindow);
-  int fNumTpV2 = manager->addFeature("NUM_TP", smfV2MultConst, fTpWindow);
-  int fDenTpV2 = manager->addFeature("DEN_TP", smfV2MultConst, fTpWindow);
+  int sfTcWindowV2 =
+      manager->addScreenFeature(smfV2MultConst, fTcWindow, "TC_WINDOW");
+  int sfTpWindowV2 =
+      manager->addScreenFeature(smfV2MultConst, fTpWindow, "TP_WINDOW");
+  int sfNumTcV2 =
+      manager->addScreenFeature(smfV2MultConst, fNumTc, "NUM_TC", sfTcWindowV2);
+  int sfDenTcV2 =
+      manager->addScreenFeature(smfV2MultConst, fDenTc, "DEN_TC", sfTcWindowV2);
+  int sfNumTpV2 =
+      manager->addScreenFeature(smfV2MultConst, fNumTp, "NUM_TP", sfTpWindowV2);
+  int sfDenTpV2 =
+      manager->addScreenFeature(smfV2MultConst, fDenTp, "DEN_TP", sfTpWindowV2);
 
-  manager->linkFeatureToComponent(fTcWindow, "Window");
-  manager->linkFeatureToComponent(fTpWindow, "Window");
-  int fcNmTcV2 = manager->linkFeatureToComponent(fNumTcV2, "Integer");
-  int fcDnTcV2 = manager->linkFeatureToComponent(fDenTcV2, "Integer");
-  int fcNmTpV2 = manager->linkFeatureToComponent(fNumTpV2, "Integer");
-  int fcDnTpV2 = manager->linkFeatureToComponent(fDenTpV2, "Integer");
+  manager->linkScreenFeatureToComponent(sfTcWindowV2, "Window");
+  manager->linkScreenFeatureToComponent(sfTpWindowV2, "Window");
+  int fcNmTcV2 = manager->linkScreenFeatureToComponent(sfNumTcV2, "Integer");
+  int fcDnTcV2 = manager->linkScreenFeatureToComponent(sfDenTcV2, "Integer");
+  int fcNmTpV2 = manager->linkScreenFeatureToComponent(sfNumTpV2, "Integer");
+  int fcDnTpV2 = manager->linkScreenFeatureToComponent(sfDenTpV2, "Integer");
 
   manager->addComponentLimit(fcNmTcV2, "MIN_VALUE", "1");
   manager->addComponentLimit(fcNmTcV2, "MAX_VALUE", "20000");
@@ -209,37 +226,39 @@ void initialize_zeus_ng(DeviceManager *manager) {
 
   // Example of Container / Window (New Firmware v3 for demonstration)
   int fwV3 = manager->addFirmwareVersion("ZEUS_NG_v3.0.0");
-  int dmfV3M1 = manager->linkFirmwareToModel(fwV3, 1);
-  int sAdvanced =
-      manager->addService("ADVANCED_SETTINGS", 0); // Top levelService
+  int dmfV3M1 = manager->linkFirmwareToModel(fwV3, m3p4w);
+  int sAdvanced = manager->addService("ADVANCED_SETTINGS", 0);
 
   int smfV3Adv = manager->linkServiceToModelFirmware(sAdvanced, dmfV3M1);
 
   // Create a Window Feature
-  int fWindow = manager->addFeature("SETTINGS_WINDOW", smfV3Adv);
-  manager->linkFeatureToComponent(fWindow, "Window");
+  int fWindow = manager->addFeature("SETTINGS_WINDOW");
+  int sfWindowV3 =
+      manager->addScreenFeature(smfV3Adv, fWindow, "SETTINGS_WINDOW");
+  manager->linkScreenFeatureToComponent(sfWindowV3, "Window");
 
-  // Add child features to the Window (using new parent_feature_id arg)
-  int fWinDate = manager->addFeature("WIN_DATE", smfV3Adv, fWindow);
-  int fWinTime = manager->addFeature("WIN_TIME", smfV3Adv, fWindow);
+  // Add child features to the Window
+  int sfWinDateV3 =
+      manager->addScreenFeature(smfV3Adv, fDate, "WIN_DATE", sfWindowV3);
+  int sfWinTimeV3 =
+      manager->addScreenFeature(smfV3Adv, fTime, "WIN_TIME", sfWindowV3);
 
-  manager->linkFeatureToComponent(fWinDate, "Date");
-  manager->linkFeatureToComponent(fWinTime, "Time");
+  manager->linkScreenFeatureToComponent(sfWinDateV3, "Date");
+  manager->linkScreenFeatureToComponent(sfWinTimeV3, "Time");
 
   // Create Zeus V1 Physical Device
-  PhysicalDeviceRecord zeusV2_a;
-  zeusV2_a.name = "Zeus V2 Unit A";
-  zeusV2_a.device_id = 1; // Zeus NG
-  zeusV2_a.model_id = 1;  // 3P/4W
-  zeusV2_a.firmware_version_id = fwV2;
-  zeusV2_a.identifier = "SN-ZV2-001";
-  zeusV2_a.description = "Zeus Unit running Firmware V2";
-  zeusV2_a.is_template = false;
-  int64_t zid1 = manager->addPhysicalDevice(zeusV2_a);
+  PhysicalDeviceRecord zeusV1_a;
+  zeusV1_a.name = "Zeus V1 Unit A";
+  zeusV1_a.device_id = 1; // Zeus NG
+  zeusV1_a.model_id = 1;  // 3P/4W
+  zeusV1_a.firmware_version_id = fwV1;
+  zeusV1_a.identifier = "SN-ZV1-001";
+  zeusV1_a.description = "Zeus Unit running Firmware V1";
+  zeusV1_a.is_template = false;
+  int64_t zid1 = manager->addPhysicalDevice(zeusV1_a);
   if (zid1 > 0) {
-    manager->setPhysicalDeviceValue(zid1, fDateV2, "2023-01-01");
-    manager->setPhysicalDeviceValue(zid1, fTimeV2, "12:00:00");
-    manager->setPhysicalDeviceValue(zid1, fGmtV2, "1");
+    manager->setPhysicalDeviceValue(zid1, fDate, "2023-01-01");
+    manager->setPhysicalDeviceValue(zid1, fTime, "12:00:00");
   }
 
   // Create Zeus V2 Physical Device
@@ -253,9 +272,9 @@ void initialize_zeus_ng(DeviceManager *manager) {
   zeusV2_b.is_template = false;
   int64_t zid2 = manager->addPhysicalDevice(zeusV2_b);
   if (zid2 > 0) {
-    manager->setPhysicalDeviceValue(zid2, fDateV2, "2024-02-11");
-    manager->setPhysicalDeviceValue(zid2, fTimeV2, "09:55:00");
-    manager->setPhysicalDeviceValue(zid2, fGmtV2, "-3");
+    manager->setPhysicalDeviceValue(zid2, fDate, "2024-02-11");
+    manager->setPhysicalDeviceValue(zid2, fTime, "09:55:00");
+    manager->setPhysicalDeviceValue(zid2, fGmt, "-3");
   }
 }
 
@@ -335,43 +354,48 @@ void initialize_recloser_3p(DeviceManager *manager) {
   int smfOvVstage1 =
       manager->linkServiceToModelFirmware(sOvervoltageStage1Config, dmfV1R3P);
 
-  // Add Features to Model R3P / Firmware v1
-  int fEnabledAutomaticResetV1 =
-      manager->addFeature("ENABLED_AUTOMATIC_RESET", smfBasProt);
-  int fAutomaticResetTimeV1 =
-      manager->addFeature("AUTOMATIC_RESET_TIME", smfBasProt);
-  int fcEnabledAutomaticResetV1 =
-      manager->linkFeatureToComponent(fEnabledAutomaticResetV1, "Toggle");
-  int fcAutomaticResetTimeV1 =
-      manager->linkFeatureToComponent(fAutomaticResetTimeV1, "Time");
+  // Add Features (Generic Parameters)
+  int fEnabledAutomaticReset = manager->addFeature("ENABLED_AUTOMATIC_RESET");
+  int fAutomaticResetTime = manager->addFeature("AUTOMATIC_RESET_TIME");
+  int fEnabledOvervoltageStage1 =
+      manager->addFeature("ENABLED_OVERVOLTAGE_STAGE_1");
+  int fOvervoltageStage1Threshold =
+      manager->addFeature("OVERVOLTAGE_STAGE_1_THRESHOLD");
+  int fRecloseAttempts = manager->addFeature("AUTOMATIC_RECLOSE_ATTEMPTS");
 
-  manager->addComponentLimit(fcEnabledAutomaticResetV1, "ON_LABEL", "ENABLED");
-  manager->addComponentLimit(fcEnabledAutomaticResetV1, "OFF_LABEL",
-                             "DISABLED");
-  manager->addComponentLimit(fcAutomaticResetTimeV1, "DEFAULT_VALUE", "5");
+  // Instantiate Screen Features for Model R3P / Firmware v1
+  int sfBasProtReset = manager->addScreenFeature(
+      smfBasProt, fEnabledAutomaticReset, "ENABLED_AUTOMATIC_RESET");
+  int sfBasProtTime = manager->addScreenFeature(smfBasProt, fAutomaticResetTime,
+                                                "AUTOMATIC_RESET_TIME");
 
-  // Add Features to Model R3P / Firmware v1
-  int fEnabledOvervoltageStage1V1 =
-      manager->addFeature("ENABLED_OVERVOLTAGE_STAGE_1", smfOvVstage1);
-  int fOvervoltageStage1ThresholdV1 =
-      manager->addFeature("OVERVOLTAGE_STAGE_1_THRESHOLD", smfOvVstage1);
-  int fcEnabledOvervoltageStage1V1 =
-      manager->linkFeatureToComponent(fEnabledOvervoltageStage1V1, "Toggle");
-  int fcOvervoltageStage1ThresholdV1 =
-      manager->linkFeatureToComponent(fOvervoltageStage1ThresholdV1, "Time");
+  int fcBasProtReset =
+      manager->linkScreenFeatureToComponent(sfBasProtReset, "Toggle");
+  int fcBasProtTime =
+      manager->linkScreenFeatureToComponent(sfBasProtTime, "Time");
 
-  manager->addComponentLimit(fcEnabledOvervoltageStage1V1, "ON_LABEL",
-                             "ENABLED");
-  manager->addComponentLimit(fcEnabledOvervoltageStage1V1, "OFF_LABEL",
-                             "DISABLED");
-  manager->addComponentLimit(fcOvervoltageStage1ThresholdV1, "DEFAULT_VALUE",
-                             "5");
+  manager->addComponentLimit(fcBasProtReset, "ON_LABEL", "ENABLED");
+  manager->addComponentLimit(fcBasProtReset, "OFF_LABEL", "DISABLED");
+  manager->addComponentLimit(fcBasProtTime, "DEFAULT_VALUE", "5");
 
-  // Add a ComboBox example: Automatic Reclose Attempts
-  int fRecloseAttempts =
-      manager->addFeature("AUTOMATIC_RECLOSE_ATTEMPTS", smfBasProt);
+  int sfOvVReset = manager->addScreenFeature(
+      smfOvVstage1, fEnabledOvervoltageStage1, "ENABLED_OVERVOLTAGE_STAGE_1");
+  int sfOvVThreshold =
+      manager->addScreenFeature(smfOvVstage1, fOvervoltageStage1Threshold,
+                                "OVERVOLTAGE_STAGE_1_THRESHOLD");
+
+  int fcOvVReset = manager->linkScreenFeatureToComponent(sfOvVReset, "Toggle");
+  int fcOvVThreshold =
+      manager->linkScreenFeatureToComponent(sfOvVThreshold, "Time");
+
+  manager->addComponentLimit(fcOvVReset, "ON_LABEL", "ENABLED");
+  manager->addComponentLimit(fcOvVReset, "OFF_LABEL", "DISABLED");
+  manager->addComponentLimit(fcOvVThreshold, "DEFAULT_VALUE", "5");
+
+  int sfRecloseAttempts = manager->addScreenFeature(
+      smfBasProt, fRecloseAttempts, "AUTOMATIC_RECLOSE_ATTEMPTS");
   int fcRecloseAttempts =
-      manager->linkFeatureToComponent(fRecloseAttempts, "ComboBox");
+      manager->linkScreenFeatureToComponent(sfRecloseAttempts, "ComboBox");
 
   manager->addKeyWithTranslations(
       "OPT_1_ATTEMPT", {{"enUs", "1 Attempt"}, {"ptBr", "1 Tentativa"}});
@@ -397,8 +421,8 @@ void initialize_recloser_3p(DeviceManager *manager) {
   int64_t id1 = manager->addPhysicalDevice(dev1);
 
   if (id1 > 0) {
-    manager->setPhysicalDeviceValue(id1, fEnabledAutomaticResetV1, "1");
-    manager->setPhysicalDeviceValue(id1, fAutomaticResetTimeV1, "10");
+    manager->setPhysicalDeviceValue(id1, fEnabledAutomaticReset, "1");
+    manager->setPhysicalDeviceValue(id1, fAutomaticResetTime, "10");
     manager->setPhysicalDeviceValue(id1, fRecloseAttempts, "3");
   }
 

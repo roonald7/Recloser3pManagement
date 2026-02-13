@@ -26,6 +26,10 @@ service DeviceService {
   rpc UpdateFeature(FeatureRecord) returns (GenericResponse);
   rpc DeleteFeature(DeleteRequest) returns (GenericResponse);
 
+  rpc CreateScreenFeature(ScreenFeatureRecord) returns (GenericResponse);
+  rpc UpdateScreenFeature(ScreenFeatureRecord) returns (GenericResponse);
+  rpc DeleteScreenFeature(DeleteRequest) returns (GenericResponse);
+
   rpc GetLanguages(LanguagesRequest) returns (LanguagesResponse);
   rpc GetDeviceInformation(DeviceInformationRequest)
       returns (DeviceInformationResponse);
@@ -85,8 +89,15 @@ message ServiceRecord {
 
 message FeatureRecord {
   int32 id = 1;
-  string description_key = 2;
-  int32 service_model_firmware_id = 3;
+  string key = 2;
+}
+
+message ScreenFeatureRecord {
+  int32 id = 1;
+  int32 service_model_firmware_id = 2;
+  int32 feature_id = 3;
+  string description_key = 4;
+  int32 parent_screen_feature_id = 5;
 }
 
 message LanguagesRequest {}

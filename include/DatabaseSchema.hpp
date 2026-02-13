@@ -54,15 +54,18 @@ const std::vector<std::string> INITIALIZATION_SQL = {
     "UNIQUE(service_id, model_firmware_id));",
 
     "CREATE TABLE IF NOT EXISTS Features (id INTEGER PRIMARY KEY "
-    "AUTOINCREMENT, description_key TEXT NOT NULL, "
-    "service_model_firmware_id INTEGER NOT NULL, "
-    "parent_feature_id INTEGER, "
-    "FOREIGN KEY (description_key) REFERENCES Descriptions(key), "
+    "AUTOINCREMENT, key TEXT UNIQUE NOT NULL);",
+
+    "CREATE TABLE IF NOT EXISTS ScreenFeature (id INTEGER PRIMARY KEY "
+    "AUTOINCREMENT, service_model_firmware_id INTEGER NOT NULL, feature_id "
+    "INTEGER NOT NULL, description_key TEXT NOT NULL, "
+    "parent_screen_feature_id INTEGER, "
     "FOREIGN KEY (service_model_firmware_id) REFERENCES "
-    "ServiceModelFirmware(id) "
+    "ServiceModelFirmware(id) ON DELETE CASCADE, "
+    "FOREIGN KEY (feature_id) REFERENCES Features(id) ON DELETE CASCADE, "
+    "FOREIGN KEY (description_key) REFERENCES Descriptions(key), "
+    "FOREIGN KEY (parent_screen_feature_id) REFERENCES ScreenFeature(id) "
     "ON DELETE CASCADE, "
-    "FOREIGN KEY (parent_feature_id) REFERENCES Features(id) ON DELETE "
-    "CASCADE, "
     "UNIQUE(service_model_firmware_id, description_key));",
 
     "CREATE TABLE IF NOT EXISTS Component (id INTEGER PRIMARY KEY "
@@ -98,9 +101,10 @@ const std::vector<std::string> INITIALIZATION_SQL = {
 
     "CREATE TABLE IF NOT EXISTS FeatureComponent ("
     "id INTEGER PRIMARY KEY AUTOINCREMENT,"
-    "feature_id INTEGER NOT NULL,"
+    "screen_feature_id INTEGER NOT NULL,"
     "component_id INTEGER NOT NULL,"
-    "FOREIGN KEY (feature_id) REFERENCES Features(id) ON DELETE CASCADE,"
+    "FOREIGN KEY (screen_feature_id) REFERENCES ScreenFeature(id) ON DELETE "
+    "CASCADE,"
     "FOREIGN KEY (component_id) REFERENCES Component(id) ON DELETE CASCADE);",
 
     "CREATE TABLE IF NOT EXISTS FeatureComponentLimits ("

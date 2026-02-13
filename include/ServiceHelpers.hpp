@@ -20,7 +20,8 @@ struct DeviceInfo {
 };
 
 struct FeatureInfo {
-  FeatureRecord record;
+  int id;
+  std::string feature_key;
   std::vector<TranslationRecord> translations;
 };
 

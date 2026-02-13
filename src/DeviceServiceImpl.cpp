@@ -95,8 +95,8 @@ void DeviceServiceImpl::fillServiceNode(const ServiceNodeInfo &info,
 
   for (const auto &feat : info.features) {
     Feature *feature = node->add_features();
-    feature->set_id(feat.record.id);
-    feature->set_feature_key(feat.record.description_key);
+    feature->set_id(feat.id);
+    feature->set_feature_key(feat.feature_key);
 
     for (const auto &t : feat.translations) {
       auto *trans = feature->add_translations();
@@ -130,17 +130,18 @@ void DeviceServiceImpl::buildServiceNode(int parentId, int mfId,
       trans->set_value(t.value);
     }
 
-    // Get features for this child service-firmware combination
+    // Get screen features for this child service-firmware combination
     int smfId = manager_->getServiceModelFirmwareId(service.id, mfId);
     if (smfId > 0) {
-      auto features = manager_->getFeaturesByServiceModelFirmware(smfId);
-      for (const auto &feat : features) {
+      auto screenFeatures =
+          manager_->getScreenFeaturesByServiceModelFirmware(smfId);
+      for (const auto &sf : screenFeatures) {
         Feature *feature = childNode->add_features();
-        feature->set_id(feat.id);
-        feature->set_feature_key(feat.description_key);
+        feature->set_id(sf.feature_id); // Base feature ID
+        feature->set_feature_key(sf.description_key);
 
         auto fTranslations =
-            manager_->getTranslationsForKey(feat.description_key);
+            manager_->getTranslationsForKey(sf.description_key);
         for (const auto &t : fTranslations) {
           auto *trans = feature->add_translations();
           trans->set_language_code(t.language_code);
@@ -166,12 +167,13 @@ void DeviceServiceImpl::buildInternalTree(
     node.display_name =
         manager_->getTranslation(service.description_key, languageCode);
 
-    // Get features for this service-firmware combination
+    // Get screen features for this service-firmware combination
     int smfId = manager_->getServiceModelFirmwareId(service.id, dmfId);
     if (smfId > 0) {
-      auto features = manager_->getFeaturesByServiceModelFirmware(smfId);
-      for (const auto &feat : features) {
-        node.features.insert(feat.description_key);
+      auto screenFeatures =
+          manager_->getScreenFeaturesByServiceModelFirmware(smfId);
+      for (const auto &sf : screenFeatures) {
+        node.features.insert(sf.description_key);
       }
     }
 
@@ -510,8 +512,8 @@ grpc::Status DeviceServiceImpl::DeleteServiceNode(grpc::ServerContext *context,
 grpc::Status DeviceServiceImpl::CreateFeature(grpc::ServerContext *context,
                                               const FeatureRecord *request,
                                               GenericResponse *response) {
-  bool success = manager_->addFeature(request->description_key(),
-                                      request->service_model_firmware_id());
+  int featureId = manager_->addFeature(request->key());
+  bool success = (featureId > 0);
   response->set_success(success);
   response->set_message(success ? "Feature created"
                                 : "Failed to create feature");
@@ -521,9 +523,7 @@ grpc::Status DeviceServiceImpl::CreateFeature(grpc::ServerContext *context,
 grpc::Status DeviceServiceImpl::UpdateFeature(grpc::ServerContext *context,
                                               const FeatureRecord *request,
                                               GenericResponse *response) {
-  bool success =
-      manager_->updateFeature(request->id(), request->description_key(),
-                              request->service_model_firmware_id());
+  bool success = manager_->updateFeature(request->id(), request->key());
   response->set_success(success);
   response->set_message(success ? "Feature updated"
                                 : "Failed to update feature");
@@ -537,6 +537,45 @@ grpc::Status DeviceServiceImpl::DeleteFeature(grpc::ServerContext *context,
   response->set_success(success);
   response->set_message(success ? "Feature deleted"
                                 : "Failed to delete feature");
+  return grpc::Status::OK;
+}
+
+grpc::Status
+DeviceServiceImpl::CreateScreenFeature(grpc::ServerContext *context,
+                                       const ScreenFeatureRecord *request,
+                                       GenericResponse *response) {
+  int id = manager_->addScreenFeature(
+      request->service_model_firmware_id(), request->feature_id(),
+      request->description_key(), request->parent_screen_feature_id());
+  bool success = (id > 0);
+  response->set_success(success);
+  response->set_message(success ? "Screen Feature created"
+                                : "Failed to create screen feature");
+  return grpc::Status::OK;
+}
+
+grpc::Status
+DeviceServiceImpl::UpdateScreenFeature(grpc::ServerContext *context,
+                                       const ScreenFeatureRecord *request,
+                                       GenericResponse *response) {
+  bool success = manager_->updateScreenFeature(
+      request->id(), request->service_model_firmware_id(),
+      request->feature_id(), request->description_key(),
+      request->parent_screen_feature_id());
+  response->set_success(success);
+  response->set_message(success ? "Screen Feature updated"
+                                : "Failed to update screen feature");
+  return grpc::Status::OK;
+}
+
+grpc::Status
+DeviceServiceImpl::DeleteScreenFeature(grpc::ServerContext *context,
+                                       const DeleteRequest *request,
+                                       GenericResponse *response) {
+  bool success = manager_->deleteScreenFeature(request->id());
+  response->set_success(success);
+  response->set_message(success ? "Screen Feature deleted"
+                                : "Failed to delete screen feature");
   return grpc::Status::OK;
 }
 
@@ -606,14 +645,15 @@ DeviceServiceImpl::GetFullInventory(grpc::ServerContext *context,
 
           int smfId = manager_->getServiceModelFirmwareId(s.id, mfId);
           if (smfId > 0) {
-            auto features = manager_->getFeaturesByServiceModelFirmware(smfId);
-            for (const auto &feat : features) {
+            auto screenFeatures =
+                manager_->getScreenFeaturesByServiceModelFirmware(smfId);
+            for (const auto &sf : screenFeatures) {
               Feature *feature = sn->add_features();
-              feature->set_id(feat.id);
-              feature->set_feature_key(feat.description_key);
+              feature->set_id(sf.feature_id);
+              feature->set_feature_key(sf.description_key);
 
               auto ftTranslations =
-                  manager_->getTranslationsForKey(feat.description_key);
+                  manager_->getTranslationsForKey(sf.description_key);
               for (const auto &t : ftTranslations) {
                 auto *trans = feature->add_translations();
                 trans->set_language_code(t.language_code);
@@ -736,8 +776,8 @@ bool DeviceServiceImpl::buildPhysicalComparisonNode(
   // Features comparison
   for (const auto &feat : info.features) {
     auto *featComp = node->add_features();
-    featComp->set_feature_id(feat.record.id);
-    featComp->set_feature_key(feat.record.description_key);
+    featComp->set_feature_id(feat.id);
+    featComp->set_feature_key(feat.feature_key);
 
     for (const auto &t : feat.translations) {
       auto *trans = featComp->add_translations();
@@ -745,10 +785,8 @@ bool DeviceServiceImpl::buildPhysicalComparisonNode(
       trans->set_value(t.value);
     }
 
-    std::string v1 =
-        valMap1.count(feat.record.id) ? valMap1.at(feat.record.id) : "";
-    std::string v2 =
-        valMap2.count(feat.record.id) ? valMap2.at(feat.record.id) : "";
+    std::string v1 = valMap1.count(feat.id) ? valMap1.at(feat.id) : "";
+    std::string v2 = valMap2.count(feat.id) ? valMap2.at(feat.id) : "";
 
     featComp->set_value_1(v1);
     featComp->set_value_2(v2);
@@ -836,9 +874,8 @@ RecordServiceImpl::GetAllRecords(grpc::ServerContext *context,
 
       auto feat = manager_->getFeatureById(v.feature_id);
       if (feat) {
-        val->set_feature_key(feat->description_key);
-        auto translations =
-            manager_->getTranslationsForKey(feat->description_key);
+        val->set_feature_key(feat->key);
+        auto translations = manager_->getTranslationsForKey(feat->key);
         for (const auto &t : translations) {
           auto *trans = val->add_translations();
           trans->set_language_code(t.language_code);

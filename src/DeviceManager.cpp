@@ -719,48 +719,43 @@ std::optional<ServiceRecord> DeviceManager::getServiceById(int id) {
   return result;
 }
 
-int DeviceManager::addFeature(const std::string &descKey,
-                              int serviceModelFirmwareId, int parentFeatureId) {
-  const char *sql = "INSERT INTO Features (description_key, "
-                    "service_model_firmware_id, "
-                    "parent_feature_id) VALUES (?, ?, ?);";
+int DeviceManager::addFeature(const std::string &key) {
+  const char *sql = "INSERT OR IGNORE INTO Features (key) VALUES (?);";
   sqlite3_stmt *stmt;
   if (sqlite3_prepare_v2(db, sql, -1, &stmt, nullptr) != SQLITE_OK)
     return 0;
 
-  sqlite3_bind_text(stmt, 1, descKey.c_str(), -1, SQLITE_TRANSIENT);
-  sqlite3_bind_int(stmt, 2, serviceModelFirmwareId);
-  if (parentFeatureId > 0)
-    sqlite3_bind_int(stmt, 3, parentFeatureId);
-  else
-    sqlite3_bind_null(stmt, 3);
+  sqlite3_bind_text(stmt, 1, key.c_str(), -1, SQLITE_TRANSIENT);
 
   int rc = sqlite3_step(stmt);
   sqlite3_finalize(stmt);
 
   if (rc == SQLITE_DONE) {
     return static_cast<int>(sqlite3_last_insert_rowid(db));
+  } else {
+    // If it exists, find the ID
+    const char *findSql = "SELECT id FROM Features WHERE key = ?;";
+    if (sqlite3_prepare_v2(db, findSql, -1, &stmt, nullptr) == SQLITE_OK) {
+      sqlite3_bind_text(stmt, 1, key.c_str(), -1, SQLITE_TRANSIENT);
+      if (sqlite3_step(stmt) == SQLITE_ROW) {
+        int id = sqlite3_column_int(stmt, 0);
+        sqlite3_finalize(stmt);
+        return id;
+      }
+      sqlite3_finalize(stmt);
+    }
   }
   return 0;
 }
 
-bool DeviceManager::updateFeature(int id, const std::string &descKey,
-                                  int serviceModelFirmwareId,
-                                  int parentFeatureId) {
-  const char *sql = "UPDATE Features SET description_key = ?, "
-                    "service_model_firmware_id = ?, parent_feature_id "
-                    "= ? WHERE id = ?;";
+bool DeviceManager::updateFeature(int id, const std::string &key) {
+  const char *sql = "UPDATE Features SET key = ? WHERE id = ?;";
   sqlite3_stmt *stmt;
   if (sqlite3_prepare_v2(db, sql, -1, &stmt, nullptr) != SQLITE_OK)
     return false;
 
-  sqlite3_bind_text(stmt, 1, descKey.c_str(), -1, SQLITE_TRANSIENT);
-  sqlite3_bind_int(stmt, 2, serviceModelFirmwareId);
-  if (parentFeatureId > 0)
-    sqlite3_bind_int(stmt, 3, parentFeatureId);
-  else
-    sqlite3_bind_null(stmt, 3);
-  sqlite3_bind_int(stmt, 4, id);
+  sqlite3_bind_text(stmt, 1, key.c_str(), -1, SQLITE_TRANSIENT);
+  sqlite3_bind_int(stmt, 2, id);
 
   int rc = sqlite3_step(stmt);
   sqlite3_finalize(stmt);
@@ -779,23 +774,16 @@ bool DeviceManager::deleteFeature(int id) {
   return rc == SQLITE_DONE;
 }
 
-std::vector<FeatureRecord>
-DeviceManager::getFeaturesByServiceModelFirmware(int serviceModelFirmwareId) {
+std::vector<FeatureRecord> DeviceManager::getAllFeatures() {
   std::vector<FeatureRecord> records;
-  const char *sql = "SELECT id, description_key, service_model_firmware_id, "
-                    "IFNULL(parent_feature_id, 0) FROM "
-                    "Features WHERE service_model_firmware_id = ?;";
+  const char *sql = "SELECT id, key FROM Features;";
   sqlite3_stmt *stmt;
 
   if (sqlite3_prepare_v2(db, sql, -1, &stmt, nullptr) == SQLITE_OK) {
-    sqlite3_bind_int(stmt, 1, serviceModelFirmwareId);
     while (sqlite3_step(stmt) == SQLITE_ROW) {
       FeatureRecord rec;
       rec.id = sqlite3_column_int(stmt, 0);
-      rec.description_key =
-          reinterpret_cast<const char *>(sqlite3_column_text(stmt, 1));
-      rec.service_model_firmware_id = sqlite3_column_int(stmt, 2);
-      rec.parent_feature_id = sqlite3_column_int(stmt, 3);
+      rec.key = reinterpret_cast<const char *>(sqlite3_column_text(stmt, 1));
       records.push_back(rec);
     }
   }
@@ -803,15 +791,149 @@ DeviceManager::getFeaturesByServiceModelFirmware(int serviceModelFirmwareId) {
   return records;
 }
 
-int DeviceManager::linkFeatureToComponent(int featureId,
-                                          const std::string &componentType) {
-  const char *sql = "INSERT INTO FeatureComponent (feature_id, component_id) "
-                    "SELECT ?, id FROM Component WHERE type = ?;";
+std::optional<FeatureRecord> DeviceManager::getFeatureById(int id) {
+  const char *sql = "SELECT id, key FROM Features WHERE id = ?;";
+  sqlite3_stmt *stmt;
+  std::optional<FeatureRecord> result = std::nullopt;
+
+  if (sqlite3_prepare_v2(db, sql, -1, &stmt, nullptr) == SQLITE_OK) {
+    sqlite3_bind_int(stmt, 1, id);
+    if (sqlite3_step(stmt) == SQLITE_ROW) {
+      FeatureRecord rec;
+      rec.id = sqlite3_column_int(stmt, 0);
+      rec.key = reinterpret_cast<const char *>(sqlite3_column_text(stmt, 1));
+      result = rec;
+    }
+    sqlite3_finalize(stmt);
+  }
+  return result;
+}
+
+int DeviceManager::addScreenFeature(int serviceModelFirmwareId, int featureId,
+                                    const std::string &descKey,
+                                    int parentScreenFeatureId) {
+  const char *sql =
+      "INSERT INTO ScreenFeature (service_model_firmware_id, feature_id, "
+      "description_key, parent_screen_feature_id) VALUES (?, ?, ?, ?);";
   sqlite3_stmt *stmt;
   if (sqlite3_prepare_v2(db, sql, -1, &stmt, nullptr) != SQLITE_OK)
     return 0;
 
-  sqlite3_bind_int(stmt, 1, featureId);
+  sqlite3_bind_int(stmt, 1, serviceModelFirmwareId);
+  sqlite3_bind_int(stmt, 2, featureId);
+  sqlite3_bind_text(stmt, 3, descKey.c_str(), -1, SQLITE_TRANSIENT);
+  if (parentScreenFeatureId > 0)
+    sqlite3_bind_int(stmt, 4, parentScreenFeatureId);
+  else
+    sqlite3_bind_null(stmt, 4);
+
+  int rc = sqlite3_step(stmt);
+  sqlite3_finalize(stmt);
+
+  if (rc == SQLITE_DONE) {
+    return static_cast<int>(sqlite3_last_insert_rowid(db));
+  }
+  return 0;
+}
+
+bool DeviceManager::updateScreenFeature(int id, int serviceModelFirmwareId,
+                                        int featureId,
+                                        const std::string &descKey,
+                                        int parentScreenFeatureId) {
+  const char *sql =
+      "UPDATE ScreenFeature SET service_model_firmware_id = ?, feature_id = ?, "
+      "description_key = ?, parent_screen_feature_id = ? WHERE id = ?;";
+  sqlite3_stmt *stmt;
+  if (sqlite3_prepare_v2(db, sql, -1, &stmt, nullptr) != SQLITE_OK)
+    return false;
+
+  sqlite3_bind_int(stmt, 1, serviceModelFirmwareId);
+  sqlite3_bind_int(stmt, 2, featureId);
+  sqlite3_bind_text(stmt, 3, descKey.c_str(), -1, SQLITE_TRANSIENT);
+  if (parentScreenFeatureId > 0)
+    sqlite3_bind_int(stmt, 4, parentScreenFeatureId);
+  else
+    sqlite3_bind_null(stmt, 4);
+  sqlite3_bind_int(stmt, 5, id);
+
+  int rc = sqlite3_step(stmt);
+  sqlite3_finalize(stmt);
+  return rc == SQLITE_DONE;
+}
+
+bool DeviceManager::deleteScreenFeature(int id) {
+  const char *sql = "DELETE FROM ScreenFeature WHERE id = ?;";
+  sqlite3_stmt *stmt;
+  if (sqlite3_prepare_v2(db, sql, -1, &stmt, nullptr) != SQLITE_OK)
+    return false;
+
+  sqlite3_bind_int(stmt, 1, id);
+  int rc = sqlite3_step(stmt);
+  sqlite3_finalize(stmt);
+  return rc == SQLITE_DONE;
+}
+
+std::vector<ScreenFeatureRecord>
+DeviceManager::getScreenFeaturesByServiceModelFirmware(
+    int serviceModelFirmwareId) {
+  std::vector<ScreenFeatureRecord> records;
+  const char *sql =
+      "SELECT id, service_model_firmware_id, feature_id, description_key, "
+      "IFNULL(parent_screen_feature_id, 0) FROM ScreenFeature WHERE "
+      "service_model_firmware_id = ?;";
+  sqlite3_stmt *stmt;
+
+  if (sqlite3_prepare_v2(db, sql, -1, &stmt, nullptr) == SQLITE_OK) {
+    sqlite3_bind_int(stmt, 1, serviceModelFirmwareId);
+    while (sqlite3_step(stmt) == SQLITE_ROW) {
+      ScreenFeatureRecord rec;
+      rec.id = sqlite3_column_int(stmt, 0);
+      rec.service_model_firmware_id = sqlite3_column_int(stmt, 1);
+      rec.feature_id = sqlite3_column_int(stmt, 2);
+      rec.description_key =
+          reinterpret_cast<const char *>(sqlite3_column_text(stmt, 3));
+      rec.parent_screen_feature_id = sqlite3_column_int(stmt, 4);
+      records.push_back(rec);
+    }
+  }
+  sqlite3_finalize(stmt);
+  return records;
+}
+
+std::optional<ScreenFeatureRecord> DeviceManager::getScreenFeatureById(int id) {
+  const char *sql =
+      "SELECT id, service_model_firmware_id, feature_id, description_key, "
+      "IFNULL(parent_screen_feature_id, 0) FROM ScreenFeature WHERE id = ?;";
+  sqlite3_stmt *stmt;
+  std::optional<ScreenFeatureRecord> result = std::nullopt;
+
+  if (sqlite3_prepare_v2(db, sql, -1, &stmt, nullptr) == SQLITE_OK) {
+    sqlite3_bind_int(stmt, 1, id);
+    if (sqlite3_step(stmt) == SQLITE_ROW) {
+      ScreenFeatureRecord rec;
+      rec.id = sqlite3_column_int(stmt, 0);
+      rec.service_model_firmware_id = sqlite3_column_int(stmt, 1);
+      rec.feature_id = sqlite3_column_int(stmt, 2);
+      rec.description_key =
+          reinterpret_cast<const char *>(sqlite3_column_text(stmt, 3));
+      rec.parent_screen_feature_id = sqlite3_column_int(stmt, 4);
+      result = rec;
+    }
+    sqlite3_finalize(stmt);
+  }
+  return result;
+}
+
+int DeviceManager::linkScreenFeatureToComponent(
+    int screenFeatureId, const std::string &componentType) {
+  const char *sql =
+      "INSERT INTO FeatureComponent (screen_feature_id, component_id) "
+      "SELECT ?, id FROM Component WHERE type = ?;";
+  sqlite3_stmt *stmt;
+  if (sqlite3_prepare_v2(db, sql, -1, &stmt, nullptr) != SQLITE_OK)
+    return 0;
+
+  sqlite3_bind_int(stmt, 1, screenFeatureId);
   sqlite3_bind_text(stmt, 2, componentType.c_str(), -1, SQLITE_TRANSIENT);
 
   int rc = sqlite3_step(stmt);
@@ -844,28 +966,6 @@ int DeviceManager::addComponentLimit(int featureComponentId,
     return static_cast<int>(sqlite3_last_insert_rowid(db));
   }
   return 0;
-}
-
-std::optional<FeatureRecord> DeviceManager::getFeatureById(int id) {
-  const char *sql = "SELECT id, description_key, service_model_firmware_id, "
-                    "IFNULL(parent_feature_id, 0) FROM Features WHERE id = ?;";
-  sqlite3_stmt *stmt;
-  std::optional<FeatureRecord> result = std::nullopt;
-
-  if (sqlite3_prepare_v2(db, sql, -1, &stmt, nullptr) == SQLITE_OK) {
-    sqlite3_bind_int(stmt, 1, id);
-    if (sqlite3_step(stmt) == SQLITE_ROW) {
-      FeatureRecord rec;
-      rec.id = sqlite3_column_int(stmt, 0);
-      rec.description_key =
-          reinterpret_cast<const char *>(sqlite3_column_text(stmt, 1));
-      rec.service_model_firmware_id = sqlite3_column_int(stmt, 2);
-      rec.parent_feature_id = sqlite3_column_int(stmt, 3);
-      result = rec;
-    }
-    sqlite3_finalize(stmt);
-  }
-  return result;
 }
 
 std::optional<DeviceManager::ServiceLayoutRecord>
@@ -903,12 +1003,12 @@ DeviceManager::getScreenLayout(int serviceModelFirmwareId) {
 
   // Get ALL features for this service-firmware combination first
   const char *layoutSql =
-      "SELECT f.id, f.description_key, c.type, fc.id, "
-      "IFNULL(f.parent_feature_id, 0) "
-      "FROM Features f "
-      "LEFT JOIN FeatureComponent fc ON f.id = fc.feature_id "
+      "SELECT sf.id, sf.description_key, c.type, fc.id, "
+      "IFNULL(sf.parent_screen_feature_id, 0), sf.feature_id "
+      "FROM ScreenFeature sf "
+      "LEFT JOIN FeatureComponent fc ON sf.id = fc.screen_feature_id "
       "LEFT JOIN Component c ON fc.component_id = c.id "
-      "WHERE f.service_model_firmware_id = ?;";
+      "WHERE sf.service_model_firmware_id = ?;";
 
   sqlite3_stmt *layoutStmt;
   if (sqlite3_prepare_v2(db, layoutSql, -1, &layoutStmt, nullptr) ==
@@ -917,10 +1017,12 @@ DeviceManager::getScreenLayout(int serviceModelFirmwareId) {
 
     while (sqlite3_step(layoutStmt) == SQLITE_ROW) {
       FeatureComponentRecord rec;
-      rec.feature_id = sqlite3_column_int(layoutStmt, 0);
+      int screenFeatureId = sqlite3_column_int(layoutStmt, 0);
+      rec.feature_id = sqlite3_column_int(layoutStmt, 5); // Base feature ID
       rec.feature_key =
           reinterpret_cast<const char *>(sqlite3_column_text(layoutStmt, 1));
-      rec.parent_feature_id = sqlite3_column_int(layoutStmt, 4);
+      rec.parent_feature_id =
+          sqlite3_column_int(layoutStmt, 4); // This is parent_screen_feature_id
 
       rec.translations = getTranslationsForKey(rec.feature_key);
 
@@ -974,21 +1076,10 @@ DeviceManager::getScreenLayout(int serviceModelFirmwareId) {
         rec.options.insert(rec.options.end(), comboOptions.begin(),
                            comboOptions.end());
       }
-      featureMap[rec.feature_id] = rec;
+      featureMap[screenFeatureId] = rec;
     }
   }
   sqlite3_finalize(layoutStmt);
-
-  // Note: The loop above adds ALL children to parents, but we only want to
-  // push ROOTS to layout.features. However, the issue is that children are
-  // ALREADY inside the map. When we push `rec` to children, we are pushing a
-  // COPY. We need to pointer or second pass. Better approach:
-  // 1. Populate Map.
-  // 2. Iterate Map. If parent_id > 0, add to parent's children list.
-  // 3. Iterate Map AGAIN. If parent_id == 0, add to layout.features.
-
-  // Reset and redo correctly:
-  layout.features.clear();
 
   // Link children
   for (auto &[id, rec] : featureMap) {
@@ -1037,24 +1128,6 @@ DeviceManager::getScreenLayout(int serviceModelFirmwareId) {
   }
 
   return layout;
-}
-
-bool DeviceManager::populateSampleLayoutData() {
-  // Overcurrent Protection (feature_id=1) -> Integer
-  int fc1 = linkFeatureToComponent(1, "Integer");
-  if (fc1 > 0) {
-    addComponentLimit(fc1, "MIN_VALUE", "0");
-    addComponentLimit(fc1, "MAX_VALUE", "5000");
-    addComponentLimit(fc1, "STEP", "1");
-  }
-
-  // Reclose Count Limit (feature_id=2) -> ComboBox
-  int fc2 = linkFeatureToComponent(2, "ComboBox");
-  if (fc2 > 0) {
-    addComponentLimit(fc2, "MAX_CHAR", "2");
-  }
-
-  return true;
 }
 
 int DeviceManager::addComponentOption(int featureComponentId,

@@ -80,6 +80,16 @@ public:
                              const DeleteRequest *request,
                              GenericResponse *response) override;
 
+  grpc::Status CreateScreenFeature(grpc::ServerContext *context,
+                                   const ScreenFeatureRecord *request,
+                                   GenericResponse *response) override;
+  grpc::Status UpdateScreenFeature(grpc::ServerContext *context,
+                                   const ScreenFeatureRecord *request,
+                                   GenericResponse *response) override;
+  grpc::Status DeleteScreenFeature(grpc::ServerContext *context,
+                                   const DeleteRequest *request,
+                                   GenericResponse *response) override;
+
   grpc::Status GetLanguages(grpc::ServerContext *context,
                             const LanguagesRequest *request,
                             LanguagesResponse *response) override;

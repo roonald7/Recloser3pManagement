@@ -49,9 +49,15 @@ struct ServiceRecord {
 
 struct FeatureRecord {
   int id;
-  std::string description_key;
+  std::string key;
+};
+
+struct ScreenFeatureRecord {
+  int id;
   int service_model_firmware_id;
-  int parent_feature_id;
+  int feature_id;
+  std::string description_key;
+  int parent_screen_feature_id;
 };
 
 struct PhysicalDeviceRecord {
@@ -130,17 +136,27 @@ public:
   std::optional<ServiceRecord> getServiceById(int id);
 
   // Feature methods
-  int addFeature(const std::string &descKey, int serviceModelFirmwareId,
-                 int parentFeatureId = 0);
-  bool updateFeature(int id, const std::string &descKey,
-                     int serviceModelFirmwareId, int parentFeatureId = 0);
+  int addFeature(const std::string &key);
+  bool updateFeature(int id, const std::string &key);
   bool deleteFeature(int id);
-  std::vector<FeatureRecord>
-  getFeaturesByServiceModelFirmware(int serviceModelFirmwareId);
+  std::vector<FeatureRecord> getAllFeatures();
   std::optional<FeatureRecord> getFeatureById(int id);
 
+  // Screen Feature methods
+  int addScreenFeature(int serviceModelFirmwareId, int featureId,
+                       const std::string &descKey,
+                       int parentScreenFeatureId = 0);
+  bool updateScreenFeature(int id, int serviceModelFirmwareId, int featureId,
+                           const std::string &descKey,
+                           int parentScreenFeatureId = 0);
+  bool deleteScreenFeature(int id);
+  std::vector<ScreenFeatureRecord>
+  getScreenFeaturesByServiceModelFirmware(int serviceModelFirmwareId);
+  std::optional<ScreenFeatureRecord> getScreenFeatureById(int id);
+
   // Component methods
-  int linkFeatureToComponent(int featureId, const std::string &componentType);
+  int linkScreenFeatureToComponent(int screenFeatureId,
+                                   const std::string &componentType);
   int addComponentLimit(int featureComponentId, const std::string &limitKey,
                         const std::string &value);
 
@@ -198,8 +214,6 @@ public:
   getValuesForPhysicalDevice(int64_t physicalDeviceId);
 
   // Population method
-
-  bool populateSampleLayoutData();
 
 private:
   std::string dbPath;
