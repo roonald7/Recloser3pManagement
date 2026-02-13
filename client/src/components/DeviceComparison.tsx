@@ -59,42 +59,55 @@ const ServiceNode = ({ node, lang, level = 0 }: { node: any, lang: string, level
                 <div style={{ marginTop: '0.5rem' }}>
                     {/* Render Features */}
                     {sortedFeatures.map((feat: any) => (
-                        <div
-                            key={feat.feature_id}
-                            style={{
-                                marginLeft: '3rem',
-                                marginBottom: '0.5rem',
-                                padding: '1rem',
-                                background: 'var(--glass)',
-                                border: '1px solid',
-                                borderColor: feat.is_different ? 'rgba(248, 113, 113, 0.3)' : 'var(--glass-border)',
-                                borderRadius: '0.75rem',
-                                display: 'grid',
-                                gridTemplateColumns: '1fr 1fr 1fr',
-                                gap: '1rem',
-                                alignItems: 'center'
-                            }}
-                        >
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                                {feat.is_different ? <AlertCircle size={14} color="#f87171" /> : <CheckCircle2 size={14} color="var(--accent)" />}
-                                <span style={{ fontSize: '0.9rem', fontWeight: 500 }}>
-                                    {feat.translations?.find((t: any) => t.language_code === lang)?.value || feat.feature_key}
-                                </span>
+                        <div key={feat.feature_id} style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', marginBottom: '0.5rem' }}>
+                            <div
+                                style={{
+                                    padding: '1rem',
+                                    background: 'var(--glass)',
+                                    border: '1px solid',
+                                    borderColor: feat.is_different ? 'rgba(248, 113, 113, 0.3)' : 'var(--glass-border)',
+                                    borderRadius: '0.75rem',
+                                    display: 'grid',
+                                    gridTemplateColumns: '1fr 1fr 1fr',
+                                    gap: '1rem',
+                                    alignItems: 'center'
+                                }}
+                            >
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                    {feat.is_different ? <AlertCircle size={14} color="#f87171" /> : <CheckCircle2 size={14} color="var(--accent)" />}
+                                    <span style={{ fontSize: '0.9rem', fontWeight: 500 }}>
+                                        {feat.translations?.find((t: any) => t.language_code === lang)?.value || feat.feature_key}
+                                    </span>
+                                </div>
+                                <div style={{ padding: '0.5rem', background: '#000', borderRadius: '0.5rem', textAlign: 'center', fontSize: '0.875rem' }}>
+                                    {feat.value_1 || '—'}
+                                </div>
+                                <div style={{
+                                    padding: '0.5rem',
+                                    background: feat.is_different ? 'rgba(248, 113, 113, 0.1)' : '#000',
+                                    borderRadius: '0.5rem',
+                                    textAlign: 'center',
+                                    fontSize: '0.875rem',
+                                    color: feat.is_different ? '#f87171' : 'inherit',
+                                    fontWeight: feat.is_different ? 600 : 400
+                                }}>
+                                    {feat.value_2 || '—'}
+                                </div>
                             </div>
-                            <div style={{ padding: '0.5rem', background: '#000', borderRadius: '0.5rem', textAlign: 'center', fontSize: '0.875rem' }}>
-                                {feat.value_1 || '—'}
-                            </div>
-                            <div style={{
-                                padding: '0.5rem',
-                                background: feat.is_different ? 'rgba(248, 113, 113, 0.1)' : '#000',
-                                borderRadius: '0.5rem',
-                                textAlign: 'center',
-                                fontSize: '0.875rem',
-                                color: feat.is_different ? '#f87171' : 'inherit',
-                                fontWeight: feat.is_different ? 600 : 400
-                            }}>
-                                {feat.value_2 || '—'}
-                            </div>
+                            {feat.difference_note && (
+                                <div style={{
+                                    marginLeft: '3rem',
+                                    fontSize: '0.75rem',
+                                    color: '#f87171',
+                                    fontWeight: 500,
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: '0.35rem'
+                                }}>
+                                    <AlertCircle size={12} />
+                                    {feat.difference_note}
+                                </div>
+                            )}
                         </div>
                     ))}
 

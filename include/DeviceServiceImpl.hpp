@@ -124,7 +124,7 @@ private:
       const std::map<std::string, ServiceTreeNode> &tree1,
       const std::map<std::string, ServiceTreeNode> &tree2,
       google::protobuf::RepeatedPtrField<ServiceDifference> *differences,
-      int &added, int &removed, int &modified);
+      int &added, int &removed, int &modified, const std::string &languageCode);
 
   // Helper to build screen layout recursively
   void populateServiceLayout(const DeviceManager::ServiceLayoutRecord &rec,
@@ -135,11 +135,12 @@ private:
                              const std::map<int, std::string> &savedValues);
 
   // Helper to build physical device comparison tree
-  bool buildPhysicalComparisonNode(const ServiceNodeInfo &info, int64_t id1,
-                                   int64_t id2,
-                                   const std::map<int, std::string> &valMap1,
-                                   const std::map<int, std::string> &valMap2,
-                                   PhysicalDeviceServiceComparison *node);
+  bool
+  buildPhysicalComparisonNode(const ServiceNodeInfo &info, int64_t id1,
+                              int64_t id2,
+                              const std::map<std::string, std::string> &valMap1,
+                              const std::map<std::string, std::string> &valMap2,
+                              PhysicalDeviceServiceComparison *node);
 };
 
 class RecordServiceImpl final : public RecordService::Service {

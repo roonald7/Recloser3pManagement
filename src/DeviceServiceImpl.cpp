@@ -71,7 +71,7 @@ grpc::Status DeviceServiceImpl::CompareServiceTrees(
   // Compare the trees
   int added = 0, removed = 0, modified = 0;
   compareNodes(tree1, tree2, response->mutable_differences(), added, removed,
-               modified);
+               modified, languageCode);
 
   // Generate summary
   std::ostringstream summary;
@@ -191,7 +191,7 @@ void DeviceServiceImpl::compareNodes(
     const std::map<std::string, ServiceTreeNode> &tree1,
     const std::map<std::string, ServiceTreeNode> &tree2,
     google::protobuf::RepeatedPtrField<ServiceDifference> *differences,
-    int &added, int &removed, int &modified) {
+    int &added, int &removed, int &modified, const std::string &languageCode) {
 
   // Find services in tree1 (check for removed or modified)
   for (const auto &[key, node1] : tree1) {
@@ -217,8 +217,11 @@ void DeviceServiceImpl::compareNodes(
       for (const auto &feat : node1.features) {
         if (node2.features.find(feat) == node2.features.end()) {
           FeatureDifference *featDiff = diff->add_feature_differences();
-          featDiff->set_feature_name(feat);
+          std::string displayName =
+              manager_->getTranslation(feat, languageCode);
+          featDiff->set_feature_name(displayName.empty() ? feat : displayName);
           featDiff->set_difference_type(DifferenceType::REMOVED);
+          featDiff->set_description("Feature does not exist in target version");
           hasChanges = true;
         }
       }
@@ -226,8 +229,11 @@ void DeviceServiceImpl::compareNodes(
       for (const auto &feat : node2.features) {
         if (node1.features.find(feat) == node1.features.end()) {
           FeatureDifference *featDiff = diff->add_feature_differences();
-          featDiff->set_feature_name(feat);
+          std::string displayName =
+              manager_->getTranslation(feat, languageCode);
+          featDiff->set_feature_name(displayName.empty() ? feat : displayName);
           featDiff->set_difference_type(DifferenceType::ADDED);
+          featDiff->set_description("Feature does not exist in source version");
           hasChanges = true;
         }
       }
@@ -236,7 +242,7 @@ void DeviceServiceImpl::compareNodes(
       int childAdded = 0, childRemoved = 0, childModified = 0;
       compareNodes(node1.children, node2.children,
                    diff->mutable_child_differences(), childAdded, childRemoved,
-                   childModified);
+                   childModified, languageCode);
 
       if (hasChanges || childAdded > 0 || childRemoved > 0 ||
           childModified > 0) {
@@ -261,8 +267,10 @@ void DeviceServiceImpl::compareNodes(
       // Add all features as new
       for (const auto &feat : node2.features) {
         FeatureDifference *featDiff = diff->add_feature_differences();
-        featDiff->set_feature_name(feat);
+        std::string displayName = manager_->getTranslation(feat, languageCode);
+        featDiff->set_feature_name(displayName.empty() ? feat : displayName);
         featDiff->set_difference_type(DifferenceType::ADDED);
+        featDiff->set_description("Feature belongs to a new service in target");
       }
 
       added++;
@@ -733,26 +741,32 @@ grpc::Status DeviceServiceImpl::ComparePhysicalDevices(
   response->set_physical_device_id_1(id1);
   response->set_physical_device_id_2(id2);
 
-  // Use Device 1's firmware as the structural base
-  int dmfId =
-      manager_->getModelFirmwareId(dev1->model_id, dev1->firmware_version_id);
-
-  auto tree = ServiceHelpers::getServiceTree(
+  // Use a merged tree structure from BOTH devices to ensure symmetry
+  auto tree1 = ServiceHelpers::getServiceTree(
       manager_, dev1->device_id, dev1->model_id, dev1->firmware_version_id);
+  auto tree2 = ServiceHelpers::getServiceTree(
+      manager_, dev2->device_id, dev2->model_id, dev2->firmware_version_id);
+
+  auto mergedTree = ServiceHelpers::mergeServiceTrees(tree1, tree2);
 
   // Load values for comparison
   auto values1 = manager_->getValuesForPhysicalDevice(id1);
   auto values2 = manager_->getValuesForPhysicalDevice(id2);
 
-  std::map<int, std::string> valMap1, valMap2;
-  // Note: For different firmwares, we would need to map by key,
-  // but for now we assume similar structures or same firmware.
-  for (const auto &v : values1)
-    valMap1[v.feature_id] = v.value;
-  for (const auto &v : values2)
-    valMap2[v.feature_id] = v.value;
+  std::map<std::string, std::string> valMap1, valMap2;
+  // Use Generic Feature KEY for mapping across different firmwares
+  for (const auto &v : values1) {
+    auto feat = manager_->getFeatureById(v.feature_id);
+    if (feat)
+      valMap1[feat->key] = v.value;
+  }
+  for (const auto &v : values2) {
+    auto feat = manager_->getFeatureById(v.feature_id);
+    if (feat)
+      valMap2[feat->key] = v.value;
+  }
 
-  for (const auto &nodeInfo : tree) {
+  for (const auto &nodeInfo : mergedTree) {
     auto *rootNode = response->add_root_services();
     buildPhysicalComparisonNode(nodeInfo, id1, id2, valMap1, valMap2, rootNode);
   }
@@ -762,8 +776,8 @@ grpc::Status DeviceServiceImpl::ComparePhysicalDevices(
 
 bool DeviceServiceImpl::buildPhysicalComparisonNode(
     const ServiceNodeInfo &info, int64_t id1, int64_t id2,
-    const std::map<int, std::string> &valMap1,
-    const std::map<int, std::string> &valMap2,
+    const std::map<std::string, std::string> &valMap1,
+    const std::map<std::string, std::string> &valMap2,
     PhysicalDeviceServiceComparison *node) {
 
   node->set_service_id(info.id);
@@ -788,16 +802,40 @@ bool DeviceServiceImpl::buildPhysicalComparisonNode(
       trans->set_value(t.value);
     }
 
-    std::string v1 = valMap1.count(feat.id) ? valMap1.at(feat.id) : "";
-    std::string v2 = valMap2.count(feat.id) ? valMap2.at(feat.id) : "";
+    // We need to find if this logical feature key exists in both maps
+    // The info.features[i].feature_key is the description_key of the screen
+    // feature. However, for physical comparison we should use the actual
+    // parameter key if possible, but the tree already uses the translation
+    // keys. Let's assume the valMaps are keyed by the description_key of the
+    // feature for comparison.
+    std::string featKey = feat.feature_key;
+    bool in1 = valMap1.count(featKey);
+    bool in2 = valMap2.count(featKey);
+
+    std::string v1 = in1 ? valMap1.at(featKey) : "";
+    std::string v2 = in2 ? valMap2.at(featKey) : "";
 
     featComp->set_value_1(v1);
     featComp->set_value_2(v2);
-    bool isDiff = (v1 != v2);
-    featComp->set_is_different(isDiff);
 
-    if (isDiff)
+    if (!in1 && in2) {
+      featComp->set_difference_type(DifferenceType::ADDED);
+      featComp->set_difference_note("Not in source version");
+      featComp->set_is_different(true);
       hasDiff = true;
+    } else if (in1 && !in2) {
+      featComp->set_difference_type(DifferenceType::REMOVED);
+      featComp->set_difference_note("Not in target version");
+      featComp->set_is_different(true);
+      hasDiff = true;
+    } else {
+      bool isDiff = (v1 != v2);
+      featComp->set_is_different(isDiff);
+      featComp->set_difference_type(isDiff ? DifferenceType::MODIFIED
+                                           : DifferenceType::UNCHANGED);
+      if (isDiff)
+        hasDiff = true;
+    }
   }
 
   // Recursive children

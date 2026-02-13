@@ -41,6 +41,10 @@ public:
                                                      int deviceId, int modelId,
                                                      int firmwareId);
 
+  static std::vector<ServiceNodeInfo>
+  mergeServiceTrees(const std::vector<ServiceNodeInfo> &tree1,
+                    const std::vector<ServiceNodeInfo> &tree2);
+
 private:
   static ServiceNodeInfo buildServiceNode(DeviceManager *manager, int serviceId,
                                           int dmfId);

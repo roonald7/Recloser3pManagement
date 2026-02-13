@@ -164,10 +164,10 @@ message CompareServiceTreesRequest {
 }
 
 enum DifferenceType {
-  ADDED = 0;
-  REMOVED = 1;
-  MODIFIED = 2;
-  UNCHANGED = 3;
+  UNCHANGED = 0;
+  ADDED = 1;
+  REMOVED = 2;
+  MODIFIED = 3;
 }
 
 message ServiceDifference {
@@ -260,6 +260,8 @@ message PhysicalDeviceFeatureComparison {
   string value_1 = 4;
   string value_2 = 5;
   bool is_different = 6;
+  DifferenceType difference_type = 7;
+  string difference_note = 8;
 }
 
 message PhysicalDeviceServiceComparison {
