@@ -150,8 +150,10 @@ export default function Configurator({ deviceId, modelId, firmwareId, physicalDe
                         />
                     );
                 case 'TOGGLE':
-                    const onOption = feature.options?.find((opt: any) => opt.value === 'ON');
-                    const offOption = feature.options?.find((opt: any) => opt.value === 'OFF');
+                    const onOption = feature.options?.find((opt: any) =>
+                        opt.value === 'ON' || opt.value === '1' || opt.value === 'true');
+                    const offOption = feature.options?.find((opt: any) =>
+                        opt.value === 'OFF' || opt.value === '0' || opt.value === 'false');
 
                     return (
                         <div

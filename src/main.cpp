@@ -243,7 +243,7 @@ void initialize_zeus_ng(DeviceManager *manager) {
   manager->linkScreenFeatureToComponent(sfWinTimeV3, "Time");
 
   // Create Zeus V1 Physical Device
-  PhysicalDeviceRecord zeusV1_a;
+  PhysicalDevice zeusV1_a;
   zeusV1_a.name = "Zeus V1 Unit A";
   zeusV1_a.device_id = 1; // Zeus NG
   zeusV1_a.model_id = 1;  // 3P/4W
@@ -258,7 +258,7 @@ void initialize_zeus_ng(DeviceManager *manager) {
   }
 
   // Create Zeus V2 Physical Device
-  PhysicalDeviceRecord zeusV2_b;
+  PhysicalDevice zeusV2_b;
   zeusV2_b.name = "Zeus V2 Unit B";
   zeusV2_b.device_id = 1; // Zeus NG
   zeusV2_b.model_id = 1;  // 3P/4W
@@ -317,8 +317,8 @@ void initialize_recloser_3p(DeviceManager *manager) {
       {{"enUs", "Overvoltage Stage 1 Threshold"},
        {"ptBr", "Limite de Sobretensão Estágio 1"}});
 
-  manager->addKeyWithTranslations(
-      "ENABLED", {{"enUs", "Enabled"}, {"ptBr", "Habilitado"}});
+  manager->addKeyWithTranslations("ENABLED",
+                                  {{"enUs", "Enabled"}, {"ptBr", "Ativado"}});
   manager->addKeyWithTranslations(
       "DISABLED", {{"enUs", "Disabled"}, {"ptBr", "Desabilitado"}});
 
@@ -370,8 +370,8 @@ void initialize_recloser_3p(DeviceManager *manager) {
   int fcBasProtTime =
       manager->linkScreenFeatureToComponent(sfBasProtTime, "Time");
 
-  manager->addComponentLimit(fcBasProtReset, "ON_LABEL", "ENABLED");
-  manager->addComponentLimit(fcBasProtReset, "OFF_LABEL", "DISABLED");
+  manager->addComponentOption(fcBasProtReset, "1", "ENABLED");
+  manager->addComponentOption(fcBasProtReset, "0", "DISABLED");
   manager->addComponentLimit(fcBasProtTime, "DEFAULT_VALUE", "5");
 
   int sfOvVReset = manager->addScreenFeature(
@@ -384,8 +384,8 @@ void initialize_recloser_3p(DeviceManager *manager) {
   int fcOvVThreshold =
       manager->linkScreenFeatureToComponent(sfOvVThreshold, "Time");
 
-  manager->addComponentLimit(fcOvVReset, "ON_LABEL", "ENABLED");
-  manager->addComponentLimit(fcOvVReset, "OFF_LABEL", "DISABLED");
+  manager->addComponentOption(fcOvVReset, "1", "ENABLED");
+  manager->addComponentOption(fcOvVReset, "0", "DISABLED");
   manager->addComponentLimit(fcOvVThreshold, "DEFAULT_VALUE", "5");
 
   int sfRecloseAttempts = manager->addScreenFeature(
@@ -405,7 +405,7 @@ void initialize_recloser_3p(DeviceManager *manager) {
   manager->addComponentOption(fcRecloseAttempts, "3", "OPT_3_ATTEMPTS");
 
   // Generate 2 records for current configurations
-  PhysicalDeviceRecord dev1;
+  PhysicalDevice dev1;
   dev1.name = "Recloser Unit A";
   dev1.device_id = dRecloser3p;
   dev1.model_id = mModel3p4w;
@@ -422,7 +422,7 @@ void initialize_recloser_3p(DeviceManager *manager) {
     manager->setPhysicalDeviceValue(id1, fRecloseAttempts, "3");
   }
 
-  PhysicalDeviceRecord dev2;
+  PhysicalDevice dev2;
   dev2.name = "Standard Template";
   dev2.device_id = dRecloser3p;
   dev2.model_id = mModel3p4w;

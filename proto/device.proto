@@ -37,6 +37,16 @@ service DeviceService {
       returns (ComparePhysicalDevicesResponse);
   rpc GetAllPhysicalDevices(GetAllPhysicalDevicesRequest)
       returns (GetAllPhysicalDevicesResponse);
+  rpc CreateFullDevice(CreateFullDeviceRequest)
+      returns (CreateFullDeviceResponse);
+  rpc CreatePhysicalDevice(CreatePhysicalDeviceRequest)
+      returns (CreatePhysicalDeviceResponse);
+  rpc GetPhysicalDevices(GetPhysicalDevicesRequest)
+      returns (GetPhysicalDevicesResponse);
+  rpc UpdatePhysicalDevice(UpdatePhysicalDeviceRequest)
+      returns (GenericResponse);
+  rpc DeletePhysicalDevice(DeletePhysicalDeviceRequest)
+      returns (GenericResponse);
 }
 
 message DeviceInformationRequest {}
@@ -235,7 +245,7 @@ message ServiceLayout {
 
 message ScreenLayoutResponse { ServiceLayout service_layout = 1; }
 
-message PhysicalDevice {
+message PhysicalDeviceProto {
   int64 id = 1;
   string name = 2;
   int32 device_id = 3;
@@ -250,7 +260,6 @@ message PhysicalDevice {
 message ComparePhysicalDevicesRequest {
   int64 physical_device_id_1 = 1;
   int64 physical_device_id_2 = 2;
-  string language_code = 3;
 }
 
 message PhysicalDeviceFeatureComparison {
@@ -262,6 +271,7 @@ message PhysicalDeviceFeatureComparison {
   bool is_different = 6;
   DifferenceType difference_type = 7;
   string difference_note = 8;
+  repeated ComponentOption options = 9;
 }
 
 message PhysicalDeviceServiceComparison {
@@ -279,11 +289,38 @@ message ComparePhysicalDevicesResponse {
   repeated PhysicalDeviceServiceComparison root_services = 3;
 }
 
+message CreatePhysicalDeviceRequest {
+  string name = 1;
+  int32 device_id = 2;
+  int32 model_id = 3;
+  int32 firmware_version_id = 4;
+  string identifier = 5;
+  string description = 6;
+  string comment = 7;
+  bool is_template = 8;
+}
+
+message CreatePhysicalDeviceResponse {
+  bool success = 1;
+  string message = 2;
+  int64 id = 3;
+}
+
 message GetAllPhysicalDevicesRequest {}
 
 message GetAllPhysicalDevicesResponse {
-  repeated PhysicalDevice physical_devices = 1;
+  repeated PhysicalDeviceProto physical_devices = 1;
 }
+
+message GetPhysicalDevicesRequest { int32 device_id = 1; }
+
+message GetPhysicalDevicesResponse {
+  repeated PhysicalDeviceProto physical_devices = 1;
+}
+
+message UpdatePhysicalDeviceRequest { PhysicalDeviceProto physical_device = 1; }
+
+message DeletePhysicalDeviceRequest { int64 id = 1; }
 
 service RecordService {
   rpc GetAllRecords(GetAllRecordsRequest) returns (GetAllRecordsResponse);
@@ -310,4 +347,27 @@ message PhysicalDeviceValue {
   string feature_key = 2;
   repeated Translation translations = 3;
   string value = 4;
+}
+
+message FirmwareCreateRequest {
+  string description_key = 1;
+  repeated Translation translations = 2;
+}
+
+message ModelCreateRequest {
+  string description_key = 1;
+  repeated Translation translations = 2;
+  repeated FirmwareCreateRequest firmwares = 3;
+}
+
+message CreateFullDeviceRequest {
+  string description_key = 1;
+  repeated Translation translations = 2;
+  repeated ModelCreateRequest models = 3;
+}
+
+message CreateFullDeviceResponse {
+  bool success = 1;
+  string message = 2;
+  DeviceInfoProto device = 3;
 }

@@ -80,6 +80,13 @@ ServiceNodeInfo ServiceHelpers::buildServiceNode(DeviceManager *manager,
         fi.id = sf.feature_id;
         fi.feature_key = sf.description_key;
         fi.translations = manager->getTranslationsForKey(sf.description_key);
+
+        // Fetch options (like ON/OFF labels for toggles)
+        int fcId = manager->getFeatureComponentId(sf.id);
+        if (fcId > 0) {
+          fi.options = manager->getComponentOptions(fcId);
+        }
+
         node.features.push_back(fi);
       }
     }

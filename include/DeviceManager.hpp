@@ -60,7 +60,7 @@ struct ScreenFeatureRecord {
   int parent_screen_feature_id;
 };
 
-struct PhysicalDeviceRecord {
+struct PhysicalDevice {
   int64_t id;
   std::string name;
   int device_id;
@@ -159,6 +159,7 @@ public:
                                    const std::string &componentType);
   int addComponentLimit(int featureComponentId, const std::string &limitKey,
                         const std::string &value);
+  int getFeatureComponentId(int screenFeatureId);
 
   struct ComponentLimitRecord {
     std::string key;
@@ -200,11 +201,12 @@ public:
   getComponentOptions(int featureComponentId);
 
   // PhysicalDevice methods
-  int64_t addPhysicalDevice(const PhysicalDeviceRecord &record);
-  bool updatePhysicalDevice(const PhysicalDeviceRecord &record);
+  int64_t addPhysicalDevice(const PhysicalDevice &record);
+  bool updatePhysicalDevice(const PhysicalDevice &record);
   bool deletePhysicalDevice(int64_t id);
-  std::vector<PhysicalDeviceRecord> getAllPhysicalDevices();
-  std::optional<PhysicalDeviceRecord> getPhysicalDeviceById(int64_t id);
+  std::vector<PhysicalDevice> getAllPhysicalDevices();
+  std::vector<PhysicalDevice> getPhysicalDevicesByDevice(int deviceId);
+  std::optional<PhysicalDevice> getPhysicalDeviceById(int64_t id);
 
   // PhysicalDeviceValue methods
   bool setPhysicalDeviceValue(int64_t physicalDeviceId, int featureId,

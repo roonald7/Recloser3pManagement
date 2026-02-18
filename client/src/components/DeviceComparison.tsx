@@ -13,6 +13,19 @@ interface DeviceComparisonProps {
     onClose: () => void;
 }
 
+const getValueDisplay = (val: string, options: any[], lang: string) => {
+    if (!val) return '—';
+    const option = options?.find(o => String(o.value) === String(val));
+    if (option) {
+        const translation = option.translations?.find((t: any) =>
+            (t.language_code?.toLowerCase() === lang.toLowerCase()) ||
+            (t.languageCode?.toLowerCase() === lang.toLowerCase())
+        );
+        return translation?.value || option.value;
+    }
+    return val;
+};
+
 const ServiceNode = ({ node, lang, level = 0 }: { node: any, lang: string, level?: number }) => {
     const [isOpen, setIsOpen] = useState(node.has_differences || level < 1);
     const title = node.translations?.find((t: any) => t.language_code === lang)?.value || node.description_key;
@@ -80,7 +93,7 @@ const ServiceNode = ({ node, lang, level = 0 }: { node: any, lang: string, level
                                     </span>
                                 </div>
                                 <div style={{ padding: '0.5rem', background: '#000', borderRadius: '0.5rem', textAlign: 'center', fontSize: '0.875rem' }}>
-                                    {feat.value_1 || '—'}
+                                    {getValueDisplay(feat.value_1, feat.options, lang)}
                                 </div>
                                 <div style={{
                                     padding: '0.5rem',
@@ -91,7 +104,7 @@ const ServiceNode = ({ node, lang, level = 0 }: { node: any, lang: string, level
                                     color: feat.is_different ? '#f87171' : 'inherit',
                                     fontWeight: feat.is_different ? 600 : 400
                                 }}>
-                                    {feat.value_2 || '—'}
+                                    {getValueDisplay(feat.value_2, feat.options, lang)}
                                 </div>
                             </div>
                             {feat.difference_note && (
@@ -128,12 +141,12 @@ export default function DeviceComparison({ id1, id2, deviceName1, deviceName2, l
     useEffect(() => {
         const fetchComparison = async () => {
             setLoading(true);
-            const result = await comparePhysicalDevices(id1, id2, languageCode);
+            const result = await comparePhysicalDevices(id1, id2);
             setComparison(result);
             setLoading(false);
         };
         fetchComparison();
-    }, [id1, id2, languageCode]);
+    }, [id1, id2]);
 
     if (loading) {
         return (
@@ -167,11 +180,11 @@ export default function DeviceComparison({ id1, id2, deviceName1, deviceName2, l
             </div>
 
             <div style={{ maxHeight: '70vh', overflowY: 'auto', paddingRight: '0.5rem' }} className="sidebar-scroll">
-                {rootServices.map((service: any) => (
+                {comparison?.root_services?.map((service: any) => (
                     <ServiceNode key={service.service_id} node={service} lang={languageCode} />
                 ))}
 
-                {rootServices.length === 0 && (
+                {comparison?.root_services?.length === 0 && (
                     <div style={{ padding: '4rem', textAlign: 'center' }}>
                         <p style={{ color: 'var(--text-muted)' }}>No service structure found for comparison.</p>
                     </div>

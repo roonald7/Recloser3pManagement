@@ -725,10 +725,9 @@ grpc::Status DeviceServiceImpl::ComparePhysicalDevices(
 
   int64_t id1 = request->physical_device_id_1();
   int64_t id2 = request->physical_device_id_2();
-  std::string languageCode = request->language_code();
 
   std::cout << "ComparePhysicalDevices (Hierarchical) called for id1=" << id1
-            << ", id2=" << id2 << ", language=" << languageCode << std::endl;
+            << ", id2=" << id2 << std::endl;
 
   auto dev1 = manager_->getPhysicalDeviceById(id1);
   auto dev2 = manager_->getPhysicalDeviceById(id2);
@@ -800,6 +799,16 @@ bool DeviceServiceImpl::buildPhysicalComparisonNode(
       auto *trans = featComp->add_translations();
       trans->set_language_code(t.language_code);
       trans->set_value(t.value);
+    }
+
+    for (const auto &opt : feat.options) {
+      auto *option = featComp->add_options();
+      option->set_value(opt.value);
+      for (const auto &optT : opt.translations) {
+        auto *optTrans = option->add_translations();
+        optTrans->set_language_code(optT.language_code);
+        optTrans->set_value(optT.value);
+      }
     }
 
     // We need to find if this logical feature key exists in both maps
@@ -925,6 +934,186 @@ RecordServiceImpl::GetAllRecords(grpc::ServerContext *context,
       }
     }
   }
+  return grpc::Status::OK;
+}
+
+grpc::Status
+DeviceServiceImpl::CreateFullDevice(grpc::ServerContext *context,
+                                    const CreateFullDeviceRequest *request,
+                                    CreateFullDeviceResponse *response) {
+  std::cout << "CreateFullDevice called for: " << request->description_key()
+            << std::endl;
+
+  auto *deviceProto = response->mutable_device();
+  deviceProto->set_description_key(request->description_key());
+
+  // 1. Device Translations
+  std::vector<std::pair<std::string, std::string>> devTranslations;
+  for (const auto &t : request->translations()) {
+    devTranslations.push_back({t.language_code(), t.value()});
+    auto *transProto = deviceProto->add_translations();
+    transProto->set_language_code(t.language_code());
+    transProto->set_value(t.value());
+  }
+  if (!devTranslations.empty()) {
+    manager_->addKeyWithTranslations(request->description_key(),
+                                     devTranslations);
+  }
+
+  // 2. Add Device
+  int deviceId = manager_->addDevice(request->description_key());
+  if (deviceId <= 0) {
+    response->set_success(false);
+    response->set_message("Failed to create device (it may already exist)");
+    return grpc::Status::OK;
+  }
+  deviceProto->set_id(deviceId);
+
+  // 3. Models
+  for (const auto &modelReq : request->models()) {
+    auto *modelProto = deviceProto->add_models();
+    modelProto->set_description_key(modelReq.description_key());
+
+    // Model Translations
+    std::vector<std::pair<std::string, std::string>> modelTranslations;
+    for (const auto &t : modelReq.translations()) {
+      modelTranslations.push_back({t.language_code(), t.value()});
+      auto *transProto = modelProto->add_translations();
+      transProto->set_language_code(t.language_code());
+      transProto->set_value(t.value());
+    }
+    if (!modelTranslations.empty()) {
+      manager_->addKeyWithTranslations(modelReq.description_key(),
+                                       modelTranslations);
+    }
+
+    // Add Model
+    int modelId = manager_->addModel(modelReq.description_key(), deviceId);
+    if (modelId <= 0)
+      continue;
+    modelProto->set_id(modelId);
+
+    // 4. Firmwares
+    for (const auto &fwReq : modelReq.firmwares()) {
+      auto *fwProto = modelProto->add_firmwares();
+      fwProto->set_description_key(fwReq.description_key());
+
+      // Firmware Translations
+      std::vector<std::pair<std::string, std::string>> fwTranslations;
+      for (const auto &t : fwReq.translations()) {
+        fwTranslations.push_back({t.language_code(), t.value()});
+        auto *transProto = fwProto->add_translations();
+        transProto->set_language_code(t.language_code());
+        transProto->set_value(t.value());
+      }
+      if (!fwTranslations.empty()) {
+        manager_->addKeyWithTranslations(fwReq.description_key(),
+                                         fwTranslations);
+      }
+
+      // Add Firmware Version
+      int fwId = manager_->addFirmwareVersion(fwReq.description_key());
+      if (fwId <= 0)
+        continue;
+      fwProto->set_id(fwId);
+
+      // Link Firmware to Model (Junction table ModelFirmware)
+      manager_->linkFirmwareToModel(fwId, modelId);
+    }
+  }
+
+  response->set_success(true);
+  response->set_message("Full device hierarchy created successfully");
+  return grpc::Status::OK;
+}
+
+grpc::Status DeviceServiceImpl::CreatePhysicalDevice(
+    grpc::ServerContext *context, const CreatePhysicalDeviceRequest *request,
+    CreatePhysicalDeviceResponse *response) {
+
+  PhysicalDevice device;
+  device.name = request->name();
+  device.device_id = request->device_id();
+  device.model_id = request->model_id();
+  device.firmware_version_id = request->firmware_version_id();
+  device.identifier = request->identifier();
+  device.description = request->description();
+  device.comment = request->comment();
+  device.is_template = request->is_template();
+
+  int64_t id = manager_->addPhysicalDevice(device);
+
+  if (id > 0) {
+    response->set_success(true);
+    response->set_id(id);
+    response->set_message("Physical device created successfully");
+  } else {
+    response->set_success(false);
+    response->set_message("Failed to create physical device");
+  }
+
+  return grpc::Status::OK;
+}
+
+grpc::Status
+DeviceServiceImpl::GetPhysicalDevices(grpc::ServerContext *context,
+                                      const GetPhysicalDevicesRequest *request,
+                                      GetPhysicalDevicesResponse *response) {
+
+  int deviceId = request->device_id();
+  std::cout << "GetPhysicalDevices called for device_id: " << deviceId
+            << std::endl;
+
+  auto devices = manager_->getPhysicalDevicesByDevice(deviceId);
+  for (const auto &d : devices) {
+    auto *pd = response->add_physical_devices();
+    pd->set_id(d.id);
+    pd->set_name(d.name);
+    pd->set_device_id(d.device_id);
+    pd->set_model_id(d.model_id);
+    pd->set_firmware_version_id(d.firmware_version_id);
+    pd->set_identifier(d.identifier);
+    pd->set_description(d.description);
+    pd->set_comment(d.comment);
+    pd->set_is_template(d.is_template);
+  }
+
+  return grpc::Status::OK;
+}
+
+grpc::Status DeviceServiceImpl::UpdatePhysicalDevice(
+    grpc::ServerContext *context, const UpdatePhysicalDeviceRequest *request,
+    GenericResponse *response) {
+
+  const auto &proto = request->physical_device();
+  PhysicalDevice device;
+  device.id = proto.id();
+  device.name = proto.name();
+  device.device_id = proto.device_id();
+  device.model_id = proto.model_id();
+  device.firmware_version_id = proto.firmware_version_id();
+  device.identifier = proto.identifier();
+  device.description = proto.description();
+  device.comment = proto.comment();
+  device.is_template = proto.is_template();
+
+  bool success = manager_->updatePhysicalDevice(device);
+  response->set_success(success);
+  response->set_message(success ? "Physical device updated successfully"
+                                : "Failed to update physical device");
+
+  return grpc::Status::OK;
+}
+
+grpc::Status DeviceServiceImpl::DeletePhysicalDevice(
+    grpc::ServerContext *context, const DeletePhysicalDeviceRequest *request,
+    GenericResponse *response) {
+
+  bool success = manager_->deletePhysicalDevice(request->id());
+  response->set_success(success);
+  response->set_message(success ? "Physical device deleted successfully"
+                                : "Failed to delete physical device");
+
   return grpc::Status::OK;
 }
 

@@ -106,6 +106,23 @@ public:
   GetAllPhysicalDevices(grpc::ServerContext *context,
                         const GetAllPhysicalDevicesRequest *request,
                         GetAllPhysicalDevicesResponse *response) override;
+  grpc::Status CreateFullDevice(grpc::ServerContext *context,
+                                const CreateFullDeviceRequest *request,
+                                CreateFullDeviceResponse *response) override;
+  grpc::Status
+  CreatePhysicalDevice(grpc::ServerContext *context,
+                       const CreatePhysicalDeviceRequest *request,
+                       CreatePhysicalDeviceResponse *response) override;
+  grpc::Status
+  GetPhysicalDevices(grpc::ServerContext *context,
+                     const GetPhysicalDevicesRequest *request,
+                     GetPhysicalDevicesResponse *response) override;
+  grpc::Status UpdatePhysicalDevice(grpc::ServerContext *context,
+                                    const UpdatePhysicalDeviceRequest *request,
+                                    GenericResponse *response) override;
+  grpc::Status DeletePhysicalDevice(grpc::ServerContext *context,
+                                    const DeletePhysicalDeviceRequest *request,
+                                    GenericResponse *response) override;
 
 private:
   DeviceManager *manager_;

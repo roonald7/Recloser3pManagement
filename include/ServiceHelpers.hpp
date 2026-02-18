@@ -23,6 +23,7 @@ struct FeatureInfo {
   int id;
   std::string feature_key;
   std::vector<TranslationRecord> translations;
+  std::vector<DeviceManager::ComponentOptionRecord> options;
 };
 
 struct ServiceNodeInfo {

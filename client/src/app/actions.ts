@@ -63,12 +63,11 @@ export async function getPhysicalDevices() {
     }
 }
 
-export async function comparePhysicalDevices(id1: string | number, id2: string | number, languageCode: string = 'enUs') {
+export async function comparePhysicalDevices(id1: string | number, id2: string | number) {
     try {
         const response = await promisifyGrpc<any>(client.ComparePhysicalDevices, {
             physical_device_id_1: id1,
-            physical_device_id_2: id2,
-            language_code: languageCode
+            physical_device_id_2: id2
         });
         return response;
     } catch (error) {
