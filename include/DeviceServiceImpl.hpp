@@ -13,7 +13,7 @@ namespace device {
 // Helper structure for comparison
 struct ServiceTreeNode {
   std::string description_key;
-  std::string display_name;
+  std::vector<TranslationRecord> translations;
   std::set<std::string> features;
   std::map<std::string, ServiceTreeNode> children;
 };
@@ -40,15 +40,15 @@ public:
                                 FullInventoryResponse *response) override;
 
   // CRUD Operations
-  grpc::Status CreateDevice(grpc::ServerContext *context,
-                            const DeviceRecord *request,
-                            GenericResponse *response) override;
-  grpc::Status UpdateDevice(grpc::ServerContext *context,
-                            const DeviceRecord *request,
-                            GenericResponse *response) override;
-  grpc::Status DeleteDevice(grpc::ServerContext *context,
-                            const DeleteRequest *request,
-                            GenericResponse *response) override;
+  grpc::Status CreateLine(grpc::ServerContext *context,
+                          const LineRecord *request,
+                          GenericResponse *response) override;
+  grpc::Status UpdateLine(grpc::ServerContext *context,
+                          const LineRecord *request,
+                          GenericResponse *response) override;
+  grpc::Status DeleteLine(grpc::ServerContext *context,
+                          const DeleteRequest *request,
+                          GenericResponse *response) override;
 
   grpc::Status CreateFirmware(grpc::ServerContext *context,
                               const FirmwareRecord *request,
@@ -94,35 +94,33 @@ public:
                             const LanguagesRequest *request,
                             LanguagesResponse *response) override;
 
-  grpc::Status
-  GetDeviceInformation(grpc::ServerContext *context,
-                       const DeviceInformationRequest *request,
-                       DeviceInformationResponse *response) override;
-  grpc::Status
-  ComparePhysicalDevices(grpc::ServerContext *context,
-                         const ComparePhysicalDevicesRequest *request,
-                         ComparePhysicalDevicesResponse *response) override;
-  grpc::Status
-  GetAllPhysicalDevices(grpc::ServerContext *context,
-                        const GetAllPhysicalDevicesRequest *request,
-                        GetAllPhysicalDevicesResponse *response) override;
-  grpc::Status CreateFullDevice(grpc::ServerContext *context,
-                                const CreateFullDeviceRequest *request,
-                                CreateFullDeviceResponse *response) override;
-  grpc::Status
-  CreatePhysicalDevice(grpc::ServerContext *context,
-                       const CreatePhysicalDeviceRequest *request,
-                       CreatePhysicalDeviceResponse *response) override;
-  grpc::Status
-  GetPhysicalDevices(grpc::ServerContext *context,
-                     const GetPhysicalDevicesRequest *request,
-                     GetPhysicalDevicesResponse *response) override;
-  grpc::Status UpdatePhysicalDevice(grpc::ServerContext *context,
-                                    const UpdatePhysicalDeviceRequest *request,
-                                    GenericResponse *response) override;
-  grpc::Status DeletePhysicalDevice(grpc::ServerContext *context,
-                                    const DeletePhysicalDeviceRequest *request,
-                                    GenericResponse *response) override;
+  grpc::Status GetLineInformation(grpc::ServerContext *context,
+                                  const LineInformationRequest *request,
+                                  LineInformationResponse *response) override;
+  grpc::Status CompareDevices(grpc::ServerContext *context,
+                              const CompareDevicesRequest *request,
+                              CompareDevicesResponse *response) override;
+  grpc::Status GetAllDevices(grpc::ServerContext *context,
+                             const GetAllDevicesRequest *request,
+                             GetAllDevicesResponse *response) override;
+  grpc::Status CreateFullLine(grpc::ServerContext *context,
+                              const CreateFullLineRequest *request,
+                              CreateFullLineResponse *response) override;
+  grpc::Status CreateDevice(grpc::ServerContext *context,
+                            const CreateDeviceRequest *request,
+                            CreateDeviceResponse *response) override;
+  grpc::Status ListLineDevices(grpc::ServerContext *context,
+                               const ListLineDevicesRequest *request,
+                               ListLineDeviceResponse *response) override;
+  grpc::Status GetDevices(grpc::ServerContext *context,
+                          const GetDevicesRequest *request,
+                          GetDevicesResponse *response) override;
+  grpc::Status UpdateDevice(grpc::ServerContext *context,
+                            const UpdateDeviceRequest *request,
+                            GenericResponse *response) override;
+  grpc::Status DeleteDevice(grpc::ServerContext *context,
+                            const DeleteDeviceRequest *request,
+                            GenericResponse *response) override;
 
 private:
   DeviceManager *manager_;
@@ -151,13 +149,12 @@ private:
                              FeatureComponentDetail *detail,
                              const std::map<int, std::string> &savedValues);
 
-  // Helper to build physical device comparison tree
-  bool
-  buildPhysicalComparisonNode(const ServiceNodeInfo &info, int64_t id1,
-                              int64_t id2,
-                              const std::map<std::string, std::string> &valMap1,
-                              const std::map<std::string, std::string> &valMap2,
-                              PhysicalDeviceServiceComparison *node);
+  // Helper to build device comparison tree
+  bool buildComparisonNode(const ServiceNodeInfo &info, int64_t id1,
+                           int64_t id2,
+                           const std::map<std::string, std::string> &valMap1,
+                           const std::map<std::string, std::string> &valMap2,
+                           DeviceServiceComparison *node);
 };
 
 class RecordServiceImpl final : public RecordService::Service {
@@ -167,6 +164,18 @@ public:
   grpc::Status GetAllRecords(grpc::ServerContext *context,
                              const GetAllRecordsRequest *request,
                              GetAllRecordsResponse *response) override;
+
+  grpc::Status ListDeviceRecords(grpc::ServerContext *context,
+                                 const ListDeviceRecordsRequest *request,
+                                 ListDeviceRecordsResponse *response) override;
+
+  grpc::Status SaveDeviceRecord(grpc::ServerContext *context,
+                                const SaveDeviceRecordRequest *request,
+                                GenericResponse *response) override;
+
+  grpc::Status CompareRecords(grpc::ServerContext *context,
+                              const CompareRecordsRequest *request,
+                              CompareRecordsResponse *response) override;
 
 private:
   DeviceManager *manager_;

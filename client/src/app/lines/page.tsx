@@ -1,5 +1,5 @@
-import { getPhysicalDevices, getLanguages, getInventory } from '../actions';
-import DeviceList from './DeviceList';
+import { getDevices, getLanguages, getInventory } from '../actions';
+import LineList from './LineList';
 import { ArrowLeft, HardDrive } from 'lucide-react';
 import Link from 'next/link';
 
@@ -10,8 +10,8 @@ export default async function DevicesPage({
 }) {
     const currentLang = searchParams.lang || 'enUs';
 
-    const [physicalDevices, languages, inventory] = await Promise.all([
-        getPhysicalDevices(),
+    const [devices, languages, inventory] = await Promise.all([
+        getDevices(),
         getLanguages(),
         getInventory()
     ]);
@@ -26,7 +26,7 @@ export default async function DevicesPage({
                             <ArrowLeft size={16} />
                         </Link>
                         <div>
-                            <h1>Physical Device Fleet</h1>
+                            <h1>Device Fleet</h1>
                             <p style={{ color: 'var(--text-muted)', fontSize: '0.875rem', marginTop: '0.25rem' }}>
                                 Manage and compare specific device instances and templates
                             </p>
@@ -34,8 +34,8 @@ export default async function DevicesPage({
                     </div>
                 </header>
 
-                <DeviceList
-                    initialDevices={physicalDevices}
+                <LineList
+                    initialDevices={devices}
                     inventory={inventory}
                     currentLang={currentLang}
                 />

@@ -1,21 +1,21 @@
 'use server';
 
-import { client, promisifyGrpc } from '@/lib/grpc';
+import { client, recordClient, promisifyGrpc } from '@/lib/grpc';
 
 export async function getInventory() {
     try {
-        const response = await promisifyGrpc<any>(client.GetFullInventory, {});
-        return response.devices || [];
+        const response = await promisifyGrpc<any>(client, client.GetFullInventory, {});
+        return response.lines || [];
     } catch (error) {
         console.error('Failed to fetch inventory:', error);
         return [];
     }
 }
 
-export async function getServiceTree(deviceId: number, modelId: number, firmwareId: number) {
+export async function getServiceTree(lineId: number, modelId: number, firmwareId: number) {
     try {
-        const response = await promisifyGrpc<any>(client.GetServiceTree, {
-            device_id: deviceId,
+        const response = await promisifyGrpc<any>(client, client.GetServiceTree, {
+            line_id: lineId,
             model_id: modelId,
             firmware_id: firmwareId
         });
@@ -26,14 +26,14 @@ export async function getServiceTree(deviceId: number, modelId: number, firmware
     }
 }
 
-export async function getScreenLayout(deviceId: number, modelId: number, firmwareId: number, serviceId?: number, physicalDeviceId?: number) {
+export async function getScreenLayout(lineId: number, modelId: number, firmwareId: number, serviceId?: number, deviceId?: number) {
     try {
-        const response = await promisifyGrpc<any>(client.GetScreenLayout, {
-            device_id: deviceId,
+        const response = await promisifyGrpc<any>(client, client.GetScreenLayout, {
+            line_id: lineId,
             model_id: modelId,
             firmware_id: firmwareId,
             service_id: serviceId,
-            physical_device_id: physicalDeviceId
+            device_id: deviceId
         });
         return response.service_layout || null;
     } catch (error) {
@@ -42,10 +42,9 @@ export async function getScreenLayout(deviceId: number, modelId: number, firmwar
     }
 }
 
-
 export async function getLanguages() {
     try {
-        const response = await promisifyGrpc<any>(client.GetLanguages, {});
+        const response = await promisifyGrpc<any>(client, client.GetLanguages, {});
         return response.languages || [];
     } catch (error) {
         console.error('Failed to fetch languages:', error);
@@ -53,26 +52,50 @@ export async function getLanguages() {
     }
 }
 
-export async function getPhysicalDevices() {
+export async function getDevices() {
     try {
-        const response = await promisifyGrpc<any>(client.GetAllPhysicalDevices, {});
-        return response.physical_devices || [];
+        const response = await promisifyGrpc<any>(client, client.GetAllDevices, {});
+        return response.devices || [];
     } catch (error) {
-        console.error('Failed to fetch physical devices:', error);
+        console.error('Failed to fetch devices:', error);
         return [];
     }
 }
 
-export async function comparePhysicalDevices(id1: string | number, id2: string | number) {
+export async function compareDevices(id1: string | number, id2: string | number) {
     try {
-        const response = await promisifyGrpc<any>(client.ComparePhysicalDevices, {
-            physical_device_id_1: id1,
-            physical_device_id_2: id2
+        const response = await promisifyGrpc<any>(client, client.CompareDevices, {
+            device_id_1: id1,
+            device_id_2: id2
         });
         return response;
     } catch (error) {
-        console.error('Failed to compare physical devices:', error);
+        console.error('Failed to compare devices:', error);
         return null;
     }
 }
 
+export async function listDeviceRecords(deviceId: number) {
+    try {
+        const response = await promisifyGrpc<any>(recordClient, recordClient.ListDeviceRecords, {
+            device_id: deviceId
+        });
+        return response.records || [];
+    } catch (error) {
+        console.error('Failed to list device records:', error);
+        return [];
+    }
+}
+
+export async function compareRecords(rid1: string | number, rid2: string | number) {
+    try {
+        const response = await promisifyGrpc<any>(recordClient, recordClient.CompareRecords, {
+            record_id_1: rid1,
+            record_id_2: rid2
+        });
+        return response;
+    } catch (error) {
+        console.error('Failed to compare records:', error);
+        return null;
+    }
+}

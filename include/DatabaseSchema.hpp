@@ -19,14 +19,14 @@ const std::vector<std::string> INITIALIZATION_SQL = {
     "REFERENCES Languages(code) ON DELETE CASCADE, UNIQUE(description_key, "
     "language_code));",
 
-    "CREATE TABLE IF NOT EXISTS Devices (id INTEGER PRIMARY KEY "
+    "CREATE TABLE IF NOT EXISTS Lines (id INTEGER PRIMARY KEY "
     "AUTOINCREMENT, description_key TEXT UNIQUE NOT NULL, FOREIGN KEY "
     "(description_key) REFERENCES Descriptions(key));",
 
     "CREATE TABLE IF NOT EXISTS Models (id INTEGER PRIMARY KEY "
     "AUTOINCREMENT, description_key TEXT UNIQUE NOT NULL, "
-    "device_id INTEGER NOT NULL, "
-    "FOREIGN KEY (device_id) REFERENCES Devices(id) ON DELETE CASCADE, "
+    "line_id INTEGER NOT NULL, "
+    "FOREIGN KEY (line_id) REFERENCES Lines(id) ON DELETE CASCADE, "
     "FOREIGN KEY (description_key) REFERENCES Descriptions(key));",
 
     "CREATE TABLE IF NOT EXISTS FirmwareVersions (id INTEGER PRIMARY KEY "
@@ -128,29 +128,31 @@ const std::vector<std::string> INITIALIZATION_SQL = {
     "CASCADE,"
     "UNIQUE(feature_component_id, value));",
 
-    "CREATE TABLE IF NOT EXISTS PhysicalDevices ("
+    "CREATE TABLE IF NOT EXISTS Devices ("
     "id INTEGER PRIMARY KEY AUTOINCREMENT,"
     "name TEXT NOT NULL,"
-    "device_id INTEGER NOT NULL,"
-    "model_id INTEGER NOT NULL,"
-    "firmware_version_id INTEGER NOT NULL,"
+    "model_firmware_id INTEGER NOT NULL,"
     "identifier TEXT UNIQUE NOT NULL,"
     "description TEXT,"
     "comment TEXT,"
     "is_template INTEGER NOT NULL DEFAULT 0,"
-    "FOREIGN KEY (device_id) REFERENCES Devices(id),"
-    "FOREIGN KEY (model_id) REFERENCES Models(id),"
-    "FOREIGN KEY (firmware_version_id) REFERENCES FirmwareVersions(id));",
+    "FOREIGN KEY (model_firmware_id) REFERENCES ModelFirmware(id));",
 
-    "CREATE TABLE IF NOT EXISTS PhysicalDeviceValues ("
+    "CREATE TABLE IF NOT EXISTS DeviceRecords ("
     "id INTEGER PRIMARY KEY AUTOINCREMENT,"
-    "physical_device_id INTEGER NOT NULL,"
+    "device_id INTEGER NOT NULL,"
+    "created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,"
+    "FOREIGN KEY (device_id) REFERENCES Devices(id) ON DELETE CASCADE);",
+
+    "CREATE TABLE IF NOT EXISTS DeviceValues ("
+    "id INTEGER PRIMARY KEY AUTOINCREMENT,"
+    "device_record_id INTEGER NOT NULL,"
     "feature_id INTEGER NOT NULL,"
     "value TEXT,"
-    "FOREIGN KEY (physical_device_id) REFERENCES PhysicalDevices(id) ON DELETE "
+    "FOREIGN KEY (device_record_id) REFERENCES DeviceRecords(id) ON DELETE "
     "CASCADE,"
     "FOREIGN KEY (feature_id) REFERENCES Features(id) ON DELETE CASCADE,"
-    "UNIQUE(physical_device_id, feature_id));",
+    "UNIQUE(device_record_id, feature_id));",
 
     "INSERT OR IGNORE INTO Migrations (version) VALUES (1);"};
 

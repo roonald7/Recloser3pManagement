@@ -19,7 +19,7 @@ struct TranslationRecord {
   std::string value;
 };
 
-struct DeviceRecord {
+struct LineRecord {
   int id;
   std::string description_key;
 };
@@ -27,7 +27,7 @@ struct DeviceRecord {
 struct ModelRecord {
   int id;
   std::string description_key;
-  int device_id;
+  int line_id;
 };
 
 struct FirmwareVersionRecord {
@@ -60,21 +60,25 @@ struct ScreenFeatureRecord {
   int parent_screen_feature_id;
 };
 
-struct PhysicalDevice {
+struct Device {
   int64_t id;
   std::string name;
-  int device_id;
-  int model_id;
-  int firmware_version_id;
+  int model_firmware_id;
   std::string identifier;
   std::string description;
   std::string comment;
   bool is_template;
 };
 
-struct PhysicalDeviceValueRecord {
+struct DeviceRecord {
+  int64_t id;
+  int64_t device_id;
+  std::string created_at;
+};
+
+struct DeviceValueRecord {
   int id;
-  int physical_device_id;
+  int64_t device_record_id;
   int feature_id;
   std::string value;
 };
@@ -100,19 +104,19 @@ public:
   std::vector<TranslationRecord> getTranslationsForKey(const std::string &key);
   std::vector<LanguageRecord> getAllLanguages();
 
-  // Device methods
-  int addDevice(const std::string &key);
-  bool updateDevice(int id, const std::string &key);
-  bool deleteDevice(int id);
-  std::vector<DeviceRecord> getAllDevices();
-  std::optional<DeviceRecord> getDeviceById(int id);
+  // Line methods
+  int addLine(const std::string &key);
+  bool updateLine(int id, const std::string &key);
+  bool deleteLine(int id);
+  std::vector<LineRecord> getAllLines();
+  std::optional<LineRecord> getLineById(int id);
 
   // Model methods
-  int addModel(const std::string &key, int deviceId);
-  bool updateModel(int id, const std::string &key, int deviceId);
+  int addModel(const std::string &key, int lineId);
+  bool updateModel(int id, const std::string &key, int lineId);
   bool deleteModel(int id);
   std::vector<ModelRecord> getAllModels();
-  std::vector<ModelRecord> getModelsForDevice(int deviceId);
+  std::vector<ModelRecord> getModelsForLine(int lineId);
   std::optional<ModelRecord> getModelById(int id);
 
   // Firmware methods
@@ -122,6 +126,7 @@ public:
   std::vector<FirmwareVersionRecord> getFirmwareVersionsForModel(int modelId);
   std::optional<FirmwareVersionRecord> getFirmwareVersionById(int id);
   int getModelFirmwareId(int modelId, int firmwareId);
+  std::optional<ModelFirmwareRecord> getModelFirmwareById(int id);
 
   // Service methods
   int addService(const std::string &descKey, int parentId = 0);
@@ -200,20 +205,30 @@ public:
   std::vector<ComponentOptionRecord>
   getComponentOptions(int featureComponentId);
 
-  // PhysicalDevice methods
-  int64_t addPhysicalDevice(const PhysicalDevice &record);
-  bool updatePhysicalDevice(const PhysicalDevice &record);
-  bool deletePhysicalDevice(int64_t id);
-  std::vector<PhysicalDevice> getAllPhysicalDevices();
-  std::vector<PhysicalDevice> getPhysicalDevicesByDevice(int deviceId);
-  std::optional<PhysicalDevice> getPhysicalDeviceById(int64_t id);
+  // Device methods
+  int64_t addDevice(const Device &record);
+  bool updateDevice(const Device &record);
+  bool deleteDevice(int64_t id);
+  std::vector<Device> getAllDevices();
+  std::vector<Device> getDevicesByLine(int lineId);
+  std::optional<Device> getDeviceById(int64_t id);
 
-  // PhysicalDeviceValue methods
-  bool setPhysicalDeviceValue(int64_t physicalDeviceId, int featureId,
-                              const std::string &value);
-  std::string getPhysicalDeviceValue(int64_t physicalDeviceId, int featureId);
-  std::vector<PhysicalDeviceValueRecord>
-  getValuesForPhysicalDevice(int64_t physicalDeviceId);
+  // DeviceRecord methods
+  int64_t addDeviceRecord(int64_t deviceId);
+  bool deleteDeviceRecord(int64_t id);
+  std::vector<DeviceRecord> getRecordsByDevice(int64_t deviceId);
+  std::optional<DeviceRecord> getDeviceRecordById(int64_t id);
+
+  // DeviceValue methods
+  bool setRecordValue(int64_t device_record_id, int feature_id,
+                      const std::string &value);
+  std::string getRecordValue(int64_t device_record_id, int feature_id);
+  std::vector<DeviceValueRecord> getValuesForRecord(int64_t device_record_id);
+
+  // Legacy/Helper (might need update to uses latest record)
+  bool setDeviceValue(int64_t deviceId, int featureId,
+                      const std::string &value);
+  std::vector<DeviceValueRecord> getValuesForDevice(int64_t deviceId);
 
   // Population method
 

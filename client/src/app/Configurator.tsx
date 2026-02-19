@@ -16,15 +16,15 @@ import {
 } from 'lucide-react';
 
 interface ConfiguratorProps {
-    deviceId: number;
+    lineId: number;
     modelId: number;
     firmwareId: number;
-    physicalDeviceId?: number;
+    deviceId?: number;
     services: any[];
     currentLang: string;
 }
 
-export default function Configurator({ deviceId, modelId, firmwareId, physicalDeviceId, services, currentLang }: ConfiguratorProps) {
+export default function Configurator({ lineId, modelId, firmwareId, deviceId, services, currentLang }: ConfiguratorProps) {
     const [selectedServiceId, setSelectedServiceId] = useState<number | null>(
         services.length > 0 ? services[0].id : null
     );
@@ -39,14 +39,15 @@ export default function Configurator({ deviceId, modelId, firmwareId, physicalDe
 
     async function loadLayout() {
         setLoading(true);
-        const result = await getScreenLayout(deviceId, modelId, firmwareId, selectedServiceId || undefined, physicalDeviceId);
+        const result = await getScreenLayout(lineId, modelId, firmwareId, selectedServiceId || undefined, deviceId);
         setLayout(result);
         setLoading(false);
     }
 
-    const getTranslation = (translations: any[], lang: string = currentLang) => {
+    const getTranslation = (data: any, lang: string = currentLang) => {
+        const translations = data?.translations || data?.info?.translations;
         const t = translations?.find((t: any) => t.language_code === lang) || translations?.[0];
-        return t?.value || 'N/A';
+        return t?.value || data?.description_key || data?.info?.description_key || 'N/A';
     };
 
     const getServiceIcon = (key: string) => {
@@ -85,7 +86,7 @@ export default function Configurator({ deviceId, modelId, firmwareId, physicalDe
                             <option value="">Select Option...</option>
                             {feature.options?.map((opt: any) => (
                                 <option key={opt.value} value={opt.value}>
-                                    {getTranslation(opt.translations) || opt.value}
+                                    {getTranslation(opt) || opt.value}
                                 </option>
                             ))}
                         </select>
@@ -167,8 +168,8 @@ export default function Configurator({ deviceId, modelId, firmwareId, physicalDe
                             )}
                             <span style={{ fontSize: '0.875rem', fontWeight: 500 }}>
                                 {isToggled
-                                    ? (onOption ? getTranslation(onOption.translations) : 'Enabled')
-                                    : (offOption ? getTranslation(offOption.translations) : 'Disabled')
+                                    ? (onOption ? getTranslation(onOption) : 'Enabled')
+                                    : (offOption ? getTranslation(offOption) : 'Disabled')
                                 }
                             </span>
                         </div>
@@ -206,7 +207,7 @@ export default function Configurator({ deviceId, modelId, firmwareId, physicalDe
                     }}>
                         <div className="label-container" style={{ marginBottom: '1rem', borderBottom: '1px solid var(--glass-border)', paddingBottom: '0.5rem' }}>
                             <div className="feature-label" style={{ fontSize: '1.1rem', color: 'var(--accent)' }}>
-                                {getTranslation(feature.translations)}
+                                {getTranslation(feature)}
                             </div>
                             <div className="badge" style={{ fontSize: '0.65rem' }}>
                                 {feature.component_type}
@@ -220,7 +221,7 @@ export default function Configurator({ deviceId, modelId, firmwareId, physicalDe
                     <>
                         <div className="label-container">
                             <div className="feature-label">
-                                {getTranslation(feature.translations)}
+                                {getTranslation(feature)}
                             </div>
                             <div className="badge" style={{ color: 'var(--text-muted)', fontSize: '0.65rem' }}>
                                 {feature.component_type}
@@ -254,7 +255,7 @@ export default function Configurator({ deviceId, modelId, firmwareId, physicalDe
                     }}>
                         <LayoutGrid size={16} color="var(--accent)" />
                         <h3 style={{ fontSize: '1rem', fontWeight: 600, color: 'var(--accent)' }}>
-                            {getTranslation(data.translations)}
+                            {getTranslation(data)}
                         </h3>
                     </div>
                 )}
@@ -295,9 +296,9 @@ export default function Configurator({ deviceId, modelId, firmwareId, physicalDe
                         fontSize: depth > 0 ? '0.9rem' : '1rem'
                     }}
                 >
-                    {depth === 0 ? getServiceIcon(svc.description_key) : <ChevronRight size={12} style={{ opacity: isActive ? 1 : 0.3 }} />}
+                    {depth === 0 ? getServiceIcon(svc.description_key || svc.info?.description_key) : <ChevronRight size={12} style={{ opacity: isActive ? 1 : 0.3 }} />}
                     <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
-                        <span style={{ fontWeight: depth === 0 ? 600 : 400 }}>{getTranslation(svc.translations)}</span>
+                        <span style={{ fontWeight: depth === 0 ? 600 : 400 }}>{getTranslation(svc)}</span>
                     </div>
                 </div>
                 {hasChildren && (
@@ -329,7 +330,7 @@ export default function Configurator({ deviceId, modelId, firmwareId, physicalDe
                     <div>
                         <div style={{ marginBottom: '2.5rem' }}>
                             <h2 style={{ fontSize: '1.75rem', fontWeight: 700 }}>
-                                {getTranslation(layout.translations)}
+                                {getTranslation(layout)}
                             </h2>
                         </div>
 

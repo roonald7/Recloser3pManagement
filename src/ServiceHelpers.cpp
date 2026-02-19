@@ -2,17 +2,17 @@
 #include <map>
 #include <vector>
 
-std::vector<DeviceInfo>
-ServiceHelpers::getDeviceInformation(DeviceManager *manager) {
-  std::vector<DeviceInfo> result;
+std::vector<LineInfo>
+ServiceHelpers::getLineInformation(DeviceManager *manager) {
+  std::vector<LineInfo> result;
 
-  auto devices = manager->getAllDevices();
-  for (const auto &device : devices) {
-    DeviceInfo di;
-    di.device = device;
-    di.translations = manager->getTranslationsForKey(device.description_key);
+  auto lines = manager->getAllLines();
+  for (const auto &line : lines) {
+    LineInfo li;
+    li.line = line;
+    li.translations = manager->getTranslationsForKey(line.description_key);
 
-    auto models = manager->getModelsForDevice(device.id);
+    auto models = manager->getModelsForLine(line.id);
     for (const auto &model : models) {
       ModelInfo mi;
       mi.model = model;
@@ -26,23 +26,26 @@ ServiceHelpers::getDeviceInformation(DeviceManager *manager) {
         mi.firmwares.push_back(fi);
       }
 
-      di.models.push_back(mi);
+      li.models.push_back(mi);
     }
 
-    result.push_back(di);
+    result.push_back(li);
   }
 
   return result;
 }
 
 std::vector<ServiceNodeInfo>
-ServiceHelpers::getServiceTree(DeviceManager *manager, int deviceId,
-                               int modelId, int firmwareId) {
-  std::vector<ServiceNodeInfo> result;
-  (void)deviceId; // Suppress unused parameter warning
-
-  // 1. Get DeviceModelFirmware ID directly using modelId and firmwareId
+ServiceHelpers::getServiceTree(DeviceManager *manager, int lineId, int modelId,
+                               int firmwareId) {
+  (void)lineId; // Suppress unused parameter warning
   int dmfId = manager->getModelFirmwareId(modelId, firmwareId);
+  return getServiceTree(manager, dmfId);
+}
+
+std::vector<ServiceNodeInfo>
+ServiceHelpers::getServiceTree(DeviceManager *manager, int dmfId) {
+  std::vector<ServiceNodeInfo> result;
   if (dmfId <= 0)
     return result;
 

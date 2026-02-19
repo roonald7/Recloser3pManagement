@@ -13,8 +13,8 @@ struct ModelInfo {
   std::vector<FirmwareInfo> firmwares;
 };
 
-struct DeviceInfo {
-  DeviceRecord device;
+struct LineInfo {
+  LineRecord line;
   std::vector<TranslationRecord> translations;
   std::vector<ModelInfo> models;
 };
@@ -36,11 +36,14 @@ struct ServiceNodeInfo {
 
 class ServiceHelpers {
 public:
-  static std::vector<DeviceInfo> getDeviceInformation(DeviceManager *manager);
+  static std::vector<LineInfo> getLineInformation(DeviceManager *manager);
 
   static std::vector<ServiceNodeInfo> getServiceTree(DeviceManager *manager,
-                                                     int deviceId, int modelId,
+                                                     int lineId, int modelId,
                                                      int firmwareId);
+
+  static std::vector<ServiceNodeInfo> getServiceTree(DeviceManager *manager,
+                                                     int dmfId);
 
   static std::vector<ServiceNodeInfo>
   mergeServiceTrees(const std::vector<ServiceNodeInfo> &tree1,

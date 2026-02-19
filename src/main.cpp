@@ -41,7 +41,7 @@ int main() {
 
   std::cout << "Database initialized at: data/management.db" << std::endl;
 
-  if (manager.getAllDevices().empty()) {
+  if (manager.getAllLines().empty()) {
     std::cout << "Database is empty. Populating initial data..." << std::endl;
 
     // Setup Languages
@@ -98,8 +98,8 @@ void initialize_zeus_ng(DeviceManager *manager) {
   manager->addKeyWithTranslations("ZEUS_NG_1P2W",
                                   {{"enUs", "1P/2W"}, {"ptBr", "1P/2W"}});
 
-  // Add Devices
-  int dZeusNg = manager->addDevice("ZEUS_NG"); // ID 1
+  // Add Lines
+  int dZeusNg = manager->addLine("ZEUS_NG"); // ID 1
 
   // Add Models
   int m3p4w = manager->addModel("ZEUS_NG_3P4W", dZeusNg); // ID 1
@@ -243,34 +243,45 @@ void initialize_zeus_ng(DeviceManager *manager) {
   manager->linkScreenFeatureToComponent(sfWinTimeV3, "Time");
 
   // Create Zeus V1 Physical Device
-  PhysicalDevice zeusV1_a;
+  Device zeusV1_a;
   zeusV1_a.name = "Zeus V1 Unit A";
-  zeusV1_a.device_id = 1; // Zeus NG
-  zeusV1_a.model_id = 1;  // 3P/4W
-  zeusV1_a.firmware_version_id = fwV1;
+  zeusV1_a.model_firmware_id = dmfV1M1;
   zeusV1_a.identifier = "SN-ZV1-001";
   zeusV1_a.description = "Zeus Unit running Firmware V1";
   zeusV1_a.is_template = false;
-  int64_t zid1 = manager->addPhysicalDevice(zeusV1_a);
+  int64_t zid1 = manager->addDevice(zeusV1_a);
   if (zid1 > 0) {
-    manager->setPhysicalDeviceValue(zid1, fDate, "2023-01-01");
-    manager->setPhysicalDeviceValue(zid1, fTime, "12:00:00");
+    // Record 1: Original deployment
+    int64_t zr1_1 = manager->addDeviceRecord(zid1);
+    manager->setRecordValue(zr1_1, fDate, "2023-01-01");
+    manager->setRecordValue(zr1_1, fTime, "12:00:00");
+
+    // Record 2: Minor time sync update
+    int64_t zr1_2 = manager->addDeviceRecord(zid1);
+    manager->setRecordValue(zr1_2, fDate, "2023-01-01");
+    manager->setRecordValue(zr1_2, fTime, "14:30:00");
   }
 
   // Create Zeus V2 Physical Device
-  PhysicalDevice zeusV2_b;
+  Device zeusV2_b;
   zeusV2_b.name = "Zeus V2 Unit B";
-  zeusV2_b.device_id = 1; // Zeus NG
-  zeusV2_b.model_id = 1;  // 3P/4W
-  zeusV2_b.firmware_version_id = fwV2;
+  zeusV2_b.model_firmware_id = dmfV2M1;
   zeusV2_b.identifier = "SN-ZV2-002";
   zeusV2_b.description = "Zeus Unit running Firmware V2";
   zeusV2_b.is_template = false;
-  int64_t zid2 = manager->addPhysicalDevice(zeusV2_b);
+  int64_t zid2 = manager->addDevice(zeusV2_b);
   if (zid2 > 0) {
-    manager->setPhysicalDeviceValue(zid2, fDate, "2024-02-11");
-    manager->setPhysicalDeviceValue(zid2, fTime, "09:55:00");
-    manager->setPhysicalDeviceValue(zid2, fGmt, "-3");
+    // Record 1: Field configuration
+    int64_t zr2_1 = manager->addDeviceRecord(zid2);
+    manager->setRecordValue(zr2_1, fDate, "2024-02-11");
+    manager->setRecordValue(zr2_1, fTime, "09:55:00");
+    manager->setRecordValue(zr2_1, fGmt, "-3");
+
+    // Record 2: Next day check-up
+    int64_t zr2_2 = manager->addDeviceRecord(zid2);
+    manager->setRecordValue(zr2_2, fDate, "2024-02-12");
+    manager->setRecordValue(zr2_2, fTime, "10:00:00");
+    manager->setRecordValue(zr2_2, fGmt, "-3");
   }
 }
 
@@ -324,8 +335,8 @@ void initialize_recloser_3p(DeviceManager *manager) {
 
   manager->addKeyWithTranslations("RECLOSER_3P_v1.0.0",
                                   {{"enUs", "v1.0.0"}, {"ptBr", "v1.0.0"}});
-  // Add Devices
-  int dRecloser3p = manager->addDevice("RECLOSER_3P"); // ID 1
+  // Add Lines
+  int dRecloser3p = manager->addLine("RECLOSER_3P"); // ID 1
 
   // Add Models
   int mModel3p4w = manager->addModel("RECLOSER_3P", dRecloser3p); // ID 1
@@ -405,31 +416,26 @@ void initialize_recloser_3p(DeviceManager *manager) {
   manager->addComponentOption(fcRecloseAttempts, "3", "OPT_3_ATTEMPTS");
 
   // Generate 2 records for current configurations
-  PhysicalDevice dev1;
+  Device dev1;
   dev1.name = "Recloser Unit A";
-  dev1.device_id = dRecloser3p;
-  dev1.model_id = mModel3p4w;
-  dev1.firmware_version_id = fwV1R3P;
+  dev1.model_firmware_id = dmfV1R3P;
   dev1.identifier = "SN-R3P-001";
   dev1.description = "Primary Recloser for Substation Alpha";
   dev1.comment = "Initial deployment";
   dev1.is_template = false;
-  int64_t id1 = manager->addPhysicalDevice(dev1);
+  int64_t id1 = manager->addDevice(dev1);
 
   if (id1 > 0) {
-    manager->setPhysicalDeviceValue(id1, fEnabledAutomaticReset, "1");
-    manager->setPhysicalDeviceValue(id1, fAutomaticResetTime, "10");
-    manager->setPhysicalDeviceValue(id1, fRecloseAttempts, "3");
-  }
+    // Record 1: Initial state
+    int64_t rec1 = manager->addDeviceRecord(id1);
+    manager->setRecordValue(rec1, fEnabledAutomaticReset, "1");
+    manager->setRecordValue(rec1, fAutomaticResetTime, "10");
+    manager->setRecordValue(rec1, fRecloseAttempts, "3");
 
-  PhysicalDevice dev2;
-  dev2.name = "Standard Template";
-  dev2.device_id = dRecloser3p;
-  dev2.model_id = mModel3p4w;
-  dev2.firmware_version_id = fwV1R3P;
-  dev2.identifier = "TEMP-R3P-STD";
-  dev2.description = "Standard configuration for rural feeders";
-  dev2.comment = "Use this as base for new units";
-  dev2.is_template = true;
-  manager->addPhysicalDevice(dev2);
+    // Record 2: Updated state (Simulate a change later)
+    int64_t rec2 = manager->addDeviceRecord(id1);
+    manager->setRecordValue(rec2, fEnabledAutomaticReset, "1");
+    manager->setRecordValue(rec2, fAutomaticResetTime, "15"); // Changed
+    manager->setRecordValue(rec2, fRecloseAttempts, "2");     // Changed
+  }
 }

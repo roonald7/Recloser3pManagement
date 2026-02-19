@@ -13,11 +13,11 @@ DeviceServiceImpl::GetServiceTree(grpc::ServerContext *context,
                                   const ServiceTreeRequest *request,
                                   ServiceTreeResponse *response) {
 
-  int deviceId = request->device_id();
+  int deviceId = request->line_id();
   int modelId = request->model_id();
   int firmwareId = request->firmware_id();
 
-  std::cout << "GetServiceTree called for device=" << deviceId
+  std::cout << "GetServiceTree called for line=" << deviceId
             << ", model=" << modelId << ", firmware=" << firmwareId
             << std::endl;
 
@@ -82,13 +82,14 @@ grpc::Status DeviceServiceImpl::CompareServiceTrees(
   return grpc::Status::OK;
 }
 
-void DeviceServiceImpl::fillServiceNode(const ServiceNodeInfo &info,
+void DeviceServiceImpl::fillServiceNode(const ::ServiceNodeInfo &info,
                                         ServiceNode *node) {
   node->set_id(info.id);
-  node->set_description_key(info.description_key);
+  auto *text = node->mutable_info();
+  text->set_description_key(info.description_key);
 
   for (const auto &t : info.translations) {
-    auto *trans = node->add_translations();
+    auto *trans = text->add_translations();
     trans->set_language_code(t.language_code);
     trans->set_value(t.value);
   }
@@ -96,10 +97,11 @@ void DeviceServiceImpl::fillServiceNode(const ServiceNodeInfo &info,
   for (const auto &feat : info.features) {
     Feature *feature = node->add_features();
     feature->set_id(feat.id);
-    feature->set_feature_key(feat.feature_key);
+    auto *fText = feature->mutable_info();
+    fText->set_description_key(feat.feature_key);
 
     for (const auto &t : feat.translations) {
-      auto *trans = feature->add_translations();
+      auto *trans = fText->add_translations();
       trans->set_language_code(t.language_code);
       trans->set_value(t.value);
     }
@@ -120,12 +122,13 @@ void DeviceServiceImpl::buildServiceNode(int parentId, int mfId,
   for (const auto &service : childServices) {
     ServiceNode *childNode = parentNode->add_children();
     childNode->set_id(service.id);
-    childNode->set_description_key(service.description_key);
+    auto *text = childNode->mutable_info();
+    text->set_description_key(service.description_key);
 
     auto translations =
         manager_->getTranslationsForKey(service.description_key);
     for (const auto &t : translations) {
-      auto *trans = childNode->add_translations();
+      auto *trans = text->add_translations();
       trans->set_language_code(t.language_code);
       trans->set_value(t.value);
     }
@@ -139,11 +142,12 @@ void DeviceServiceImpl::buildServiceNode(int parentId, int mfId,
         if (sf.feature_id > 0) {
           Feature *feature = childNode->add_features();
           feature->set_id(sf.feature_id); // Base feature ID
-          feature->set_feature_key(sf.description_key);
+          auto *fText = feature->mutable_info();
+          fText->set_description_key(sf.description_key);
           auto fTranslations =
               manager_->getTranslationsForKey(sf.description_key);
           for (const auto &t : fTranslations) {
-            auto *trans = feature->add_translations();
+            auto *trans = fText->add_translations();
             trans->set_language_code(t.language_code);
             trans->set_value(t.value);
           }
@@ -158,6 +162,7 @@ void DeviceServiceImpl::buildServiceNode(int parentId, int mfId,
 void DeviceServiceImpl::buildInternalTree(
     int parentId, int dmfId, const std::string &languageCode,
     std::map<std::string, ServiceTreeNode> &tree) {
+  (void)languageCode; // No longer needed for single display_name
 
   auto services =
       manager_->getServicesByParentAndModelFirmware(parentId, dmfId);
@@ -165,8 +170,8 @@ void DeviceServiceImpl::buildInternalTree(
   for (const auto &service : services) {
     ServiceTreeNode node;
     node.description_key = service.description_key;
-    node.display_name =
-        manager_->getTranslation(service.description_key, languageCode);
+    node.translations =
+        manager_->getTranslationsForKey(service.description_key);
 
     // Get screen features for this service-firmware combination
     int smfId = manager_->getServiceModelFirmwareId(service.id, dmfId);
@@ -200,8 +205,13 @@ void DeviceServiceImpl::compareNodes(
     if (it2 == tree2.end()) {
       // Service removed in tree2
       ServiceDifference *diff = differences->Add();
-      diff->set_description_key(node1.description_key);
-      diff->set_display_name(node1.display_name);
+      auto *text = diff->mutable_info();
+      text->set_description_key(node1.description_key);
+      for (const auto &t : node1.translations) {
+        auto *pTrans = text->add_translations();
+        pTrans->set_language_code(t.language_code);
+        pTrans->set_value(t.value);
+      }
       diff->set_difference_type(DifferenceType::REMOVED);
       removed++;
     } else {
@@ -210,8 +220,13 @@ void DeviceServiceImpl::compareNodes(
       bool hasChanges = false;
 
       ServiceDifference *diff = differences->Add();
-      diff->set_description_key(node1.description_key);
-      diff->set_display_name(node1.display_name);
+      auto *text = diff->mutable_info();
+      text->set_description_key(node1.description_key);
+      for (const auto &t : node1.translations) {
+        auto *pTrans = text->add_translations();
+        pTrans->set_language_code(t.language_code);
+        pTrans->set_value(t.value);
+      }
 
       // Compare features
       for (const auto &feat : node1.features) {
@@ -260,8 +275,13 @@ void DeviceServiceImpl::compareNodes(
   for (const auto &[key, node2] : tree2) {
     if (tree1.find(key) == tree1.end()) {
       ServiceDifference *diff = differences->Add();
-      diff->set_description_key(node2.description_key);
-      diff->set_display_name(node2.display_name);
+      auto *text = diff->mutable_info();
+      text->set_description_key(node2.description_key);
+      for (const auto &t : node2.translations) {
+        auto *pTrans = text->add_translations();
+        pTrans->set_language_code(t.language_code);
+        pTrans->set_value(t.value);
+      }
       diff->set_difference_type(DifferenceType::ADDED);
 
       // Add all features as new
@@ -283,16 +303,16 @@ DeviceServiceImpl::GetScreenLayout(grpc::ServerContext *context,
                                    const ScreenLayoutRequest *request,
                                    ScreenLayoutResponse *response) {
 
-  int deviceId = request->device_id();
+  int deviceId = request->line_id();
   int modelId = request->model_id();
   int firmwareId = request->firmware_id();
   int serviceId = request->service_id();
-  int64_t physicalDeviceId = request->physical_device_id();
+  int64_t deviceInstanceId = request->device_id();
 
-  std::cout << "GetScreenLayout called for device_id=" << deviceId
+  std::cout << "GetScreenLayout called for line_id=" << deviceId
             << ", model_id=" << modelId << ", firmware_id=" << firmwareId
             << ", service_id=" << serviceId
-            << ", physical_device_id=" << physicalDeviceId << std::endl;
+            << ", device_id=" << deviceInstanceId << std::endl;
 
   // Get the device_model_firmware_id directly from model and firmware
   int dmfId = manager_->getModelFirmwareId(modelId, firmwareId);
@@ -315,10 +335,10 @@ DeviceServiceImpl::GetScreenLayout(grpc::ServerContext *context,
                         "No services found for this firmware");
   }
 
-  // Load saved values if a physical device is specified
+  // Load saved values if a device is specified
   std::map<int, std::string> savedValues;
-  if (physicalDeviceId > 0) {
-    auto values = manager_->getValuesForPhysicalDevice(physicalDeviceId);
+  if (deviceInstanceId > 0) {
+    auto values = manager_->getValuesForDevice(deviceInstanceId);
     for (const auto &v : values) {
       savedValues[v.feature_id] = v.value;
     }
@@ -353,10 +373,11 @@ void DeviceServiceImpl::populateServiceLayout(
     const std::map<int, std::string> &savedValues) {
 
   layout->set_service_id(rec.service_id);
-  layout->set_description_key(rec.description_key);
+  auto *text = layout->mutable_info();
+  text->set_description_key(rec.description_key);
 
   for (const auto &t : rec.translations) {
-    auto *trans = layout->add_translations();
+    auto *trans = text->add_translations();
     trans->set_language_code(t.language_code);
     trans->set_value(t.value);
   }
@@ -377,10 +398,11 @@ void DeviceServiceImpl::populateFeatureDetail(
     FeatureComponentDetail *detail,
     const std::map<int, std::string> &savedValues) {
   detail->set_feature_id(rec.feature_id);
-  detail->set_feature_key(rec.feature_key);
+  auto *fText = detail->mutable_info();
+  fText->set_description_key(rec.feature_key);
 
   for (const auto &t : rec.translations) {
-    auto *trans = detail->add_translations();
+    auto *trans = fText->add_translations();
     trans->set_language_code(t.language_code);
     trans->set_value(t.value);
   }
@@ -403,10 +425,10 @@ void DeviceServiceImpl::populateFeatureDetail(
   for (const auto &opt : rec.options) {
     auto *option = detail->add_options();
     option->set_value(opt.value);
-    for (const auto &t : opt.translations) {
-      auto *trans = option->add_translations();
-      trans->set_language_code(t.language_code);
-      trans->set_value(t.value);
+    for (const auto &optT : opt.translations) {
+      auto *optTrans = option->add_translations();
+      optTrans->set_language_code(optT.language_code);
+      optTrans->set_value(optT.value);
     }
   }
 
@@ -416,31 +438,31 @@ void DeviceServiceImpl::populateFeatureDetail(
   }
 }
 
-grpc::Status DeviceServiceImpl::CreateDevice(grpc::ServerContext *context,
-                                             const DeviceRecord *request,
-                                             GenericResponse *response) {
-  bool success = manager_->addDevice(request->description_key());
+grpc::Status DeviceServiceImpl::CreateLine(grpc::ServerContext *context,
+                                           const LineRecord *request,
+                                           GenericResponse *response) {
+  bool success = manager_->addLine(request->description_key());
   response->set_success(success);
-  response->set_message(success ? "Device created" : "Failed to create device");
+  response->set_message(success ? "Line created" : "Failed to create line");
   return grpc::Status::OK;
 }
 
-grpc::Status DeviceServiceImpl::UpdateDevice(grpc::ServerContext *context,
-                                             const DeviceRecord *request,
-                                             GenericResponse *response) {
+grpc::Status DeviceServiceImpl::UpdateLine(grpc::ServerContext *context,
+                                           const LineRecord *request,
+                                           GenericResponse *response) {
   bool success =
-      manager_->updateDevice(request->id(), request->description_key());
+      manager_->updateLine(request->id(), request->description_key());
   response->set_success(success);
-  response->set_message(success ? "Device updated" : "Failed to update device");
+  response->set_message(success ? "Line updated" : "Failed to update line");
   return grpc::Status::OK;
 }
 
-grpc::Status DeviceServiceImpl::DeleteDevice(grpc::ServerContext *context,
-                                             const DeleteRequest *request,
-                                             GenericResponse *response) {
-  bool success = manager_->deleteDevice(request->id());
+grpc::Status DeviceServiceImpl::DeleteLine(grpc::ServerContext *context,
+                                           const DeleteRequest *request,
+                                           GenericResponse *response) {
+  bool success = manager_->deleteLine(request->id());
   response->set_success(success);
-  response->set_message(success ? "Device deleted" : "Failed to delete device");
+  response->set_message(success ? "Line deleted" : "Failed to delete line");
   return grpc::Status::OK;
 }
 
@@ -597,31 +619,34 @@ DeviceServiceImpl::GetFullInventory(grpc::ServerContext *context,
 
   std::cout << "GetFullInventory called" << std::endl;
 
-  auto devices = manager_->getAllDevices();
-  for (const auto &d : devices) {
-    auto *di = response->add_devices();
-    di->set_id(d.id);
-    di->set_description_key(d.description_key);
+  auto lines = manager_->getAllLines();
+  for (const auto &dev : lines) {
+    auto *devInv = response->add_lines();
+    devInv->set_id(dev.id);
+    auto *lText = devInv->mutable_info();
+    lText->set_description_key(dev.description_key);
 
-    auto dTranslations = manager_->getTranslationsForKey(d.description_key);
-    for (const auto &t : dTranslations) {
-      auto *trans = di->add_translations();
-      trans->set_language_code(t.language_code);
-      trans->set_value(t.value);
+    auto lineTranslations =
+        manager_->getTranslationsForKey(dev.description_key);
+    for (const auto &lt : lineTranslations) {
+      auto *trans = lText->add_translations();
+      trans->set_language_code(lt.language_code);
+      trans->set_value(lt.value);
     }
 
-    auto models = manager_->getModelsForDevice(d.id);
+    auto models = manager_->getModelsForLine(dev.id);
     for (const auto &model : models) {
-      auto *mi = di->add_models();
+      auto *mi = devInv->add_models();
       mi->set_id(model.id);
-      mi->set_description_key(model.description_key);
+      auto *mText = mi->mutable_info();
+      mText->set_description_key(model.description_key);
 
-      auto mTranslations =
+      auto modelTranslations =
           manager_->getTranslationsForKey(model.description_key);
-      for (const auto &t : mTranslations) {
-        auto *trans = mi->add_translations();
-        trans->set_language_code(t.language_code);
-        trans->set_value(t.value);
+      for (const auto &mt : modelTranslations) {
+        auto *trans = mText->add_translations();
+        trans->set_language_code(mt.language_code);
+        trans->set_value(mt.value);
       }
 
       auto firmwares = manager_->getFirmwareVersionsForModel(model.id);
@@ -629,13 +654,15 @@ DeviceServiceImpl::GetFullInventory(grpc::ServerContext *context,
         auto *fi = mi->add_firmwares();
         int mfId = manager_->getModelFirmwareId(model.id, f.id);
         fi->set_id(mfId); // Returning DMF ID as the "firmware id" for inventory
-        fi->set_description_key(f.description_key);
+        auto *fText = fi->mutable_info();
+        fText->set_description_key(f.description_key);
 
-        auto fTranslations = manager_->getTranslationsForKey(f.description_key);
-        for (const auto &t : fTranslations) {
-          auto *trans = fi->add_translations();
-          trans->set_language_code(t.language_code);
-          trans->set_value(t.value);
+        auto firmwareTranslations =
+            manager_->getTranslationsForKey(f.description_key);
+        for (const auto &ft : firmwareTranslations) {
+          auto *trans = fText->add_translations();
+          trans->set_language_code(ft.language_code);
+          trans->set_value(ft.value);
         }
 
         // Fetch top level services for this model-firmware combination
@@ -644,14 +671,15 @@ DeviceServiceImpl::GetFullInventory(grpc::ServerContext *context,
         for (const auto &s : topServices) {
           auto *sn = fi->add_services();
           sn->set_id(s.id);
-          sn->set_description_key(s.description_key);
+          auto *sText = sn->mutable_info();
+          sText->set_description_key(s.description_key);
 
           auto sTranslations =
               manager_->getTranslationsForKey(s.description_key);
-          for (const auto &t : sTranslations) {
-            auto *trans = sn->add_translations();
-            trans->set_language_code(t.language_code);
-            trans->set_value(t.value);
+          for (const auto &st : sTranslations) {
+            auto *trans = sText->add_translations();
+            trans->set_language_code(st.language_code);
+            trans->set_value(st.value);
           }
 
           int smfId = manager_->getServiceModelFirmwareId(s.id, mfId);
@@ -659,16 +687,19 @@ DeviceServiceImpl::GetFullInventory(grpc::ServerContext *context,
             auto screenFeatures =
                 manager_->getScreenFeaturesByServiceModelFirmware(smfId);
             for (const auto &sf : screenFeatures) {
-              Feature *feature = sn->add_features();
-              feature->set_id(sf.feature_id);
-              feature->set_feature_key(sf.description_key);
+              if (sf.feature_id > 0) {
+                Feature *feature = sn->add_features();
+                feature->set_id(sf.feature_id);
+                auto *featText = feature->mutable_info();
+                featText->set_description_key(sf.description_key);
 
-              auto ftTranslations =
-                  manager_->getTranslationsForKey(sf.description_key);
-              for (const auto &t : ftTranslations) {
-                auto *trans = feature->add_translations();
-                trans->set_language_code(t.language_code);
-                trans->set_value(t.value);
+                auto featureTranslations =
+                    manager_->getTranslationsForKey(sf.description_key);
+                for (const auto &fTrans : featureTranslations) {
+                  auto *trans = featText->add_translations();
+                  trans->set_language_code(fTrans.language_code);
+                  trans->set_value(fTrans.value);
+                }
               }
             }
           }
@@ -682,34 +713,37 @@ DeviceServiceImpl::GetFullInventory(grpc::ServerContext *context,
 }
 
 grpc::Status
-DeviceServiceImpl::GetDeviceInformation(grpc::ServerContext *context,
-                                        const DeviceInformationRequest *request,
-                                        DeviceInformationResponse *response) {
-  auto deviceInfos = ServiceHelpers::getDeviceInformation(manager_);
-  for (const auto &di : deviceInfos) {
-    auto *deviceProto = response->add_devices();
-    deviceProto->set_id(di.device.id);
-    deviceProto->set_description_key(di.device.description_key);
-    for (const auto &t : di.translations) {
-      auto *trans = deviceProto->add_translations();
+DeviceServiceImpl::GetLineInformation(grpc::ServerContext *context,
+                                      const LineInformationRequest *request,
+                                      LineInformationResponse *response) {
+  auto lineInfos = ::ServiceHelpers::getLineInformation(manager_);
+  for (const auto &li : lineInfos) {
+    auto *lineProto = response->add_lines();
+    lineProto->set_id(li.line.id);
+    auto *lText = lineProto->mutable_info();
+    lText->set_description_key(li.line.description_key);
+    for (const auto &t : li.translations) {
+      auto *trans = lText->add_translations();
       trans->set_language_code(t.language_code);
       trans->set_value(t.value);
     }
-    for (const auto &mi : di.models) {
-      auto *modelProto = deviceProto->add_models();
+    for (const auto &mi : li.models) {
+      auto *modelProto = lineProto->add_models();
       modelProto->set_id(mi.model.id);
-      modelProto->set_description_key(mi.model.description_key);
+      auto *mText = modelProto->mutable_info();
+      mText->set_description_key(mi.model.description_key);
       for (const auto &t : mi.translations) {
-        auto *trans = modelProto->add_translations();
+        auto *trans = mText->add_translations();
         trans->set_language_code(t.language_code);
         trans->set_value(t.value);
       }
       for (const auto &fi : mi.firmwares) {
         auto *fwProto = modelProto->add_firmwares();
         fwProto->set_id(fi.firmware.id);
-        fwProto->set_description_key(fi.firmware.description_key);
+        auto *fText = fwProto->mutable_info();
+        fText->set_description_key(fi.firmware.description_key);
         for (const auto &t : fi.translations) {
-          auto *trans = fwProto->add_translations();
+          auto *trans = fText->add_translations();
           trans->set_language_code(t.language_code);
           trans->set_value(t.value);
         }
@@ -719,72 +753,20 @@ DeviceServiceImpl::GetDeviceInformation(grpc::ServerContext *context,
   return grpc::Status::OK;
 }
 
-grpc::Status DeviceServiceImpl::ComparePhysicalDevices(
-    grpc::ServerContext *context, const ComparePhysicalDevicesRequest *request,
-    ComparePhysicalDevicesResponse *response) {
-
-  int64_t id1 = request->physical_device_id_1();
-  int64_t id2 = request->physical_device_id_2();
-
-  std::cout << "ComparePhysicalDevices (Hierarchical) called for id1=" << id1
-            << ", id2=" << id2 << std::endl;
-
-  auto dev1 = manager_->getPhysicalDeviceById(id1);
-  auto dev2 = manager_->getPhysicalDeviceById(id2);
-
-  if (!dev1 || !dev2) {
-    return grpc::Status(grpc::StatusCode::NOT_FOUND,
-                        "One or both physical devices not found");
-  }
-
-  response->set_physical_device_id_1(id1);
-  response->set_physical_device_id_2(id2);
-
-  // Use a merged tree structure from BOTH devices to ensure symmetry
-  auto tree1 = ServiceHelpers::getServiceTree(
-      manager_, dev1->device_id, dev1->model_id, dev1->firmware_version_id);
-  auto tree2 = ServiceHelpers::getServiceTree(
-      manager_, dev2->device_id, dev2->model_id, dev2->firmware_version_id);
-
-  auto mergedTree = ServiceHelpers::mergeServiceTrees(tree1, tree2);
-
-  // Load values for comparison
-  auto values1 = manager_->getValuesForPhysicalDevice(id1);
-  auto values2 = manager_->getValuesForPhysicalDevice(id2);
-
-  std::map<std::string, std::string> valMap1, valMap2;
-  // Use Generic Feature KEY for mapping across different firmwares
-  for (const auto &v : values1) {
-    auto feat = manager_->getFeatureById(v.feature_id);
-    if (feat)
-      valMap1[feat->key] = v.value;
-  }
-  for (const auto &v : values2) {
-    auto feat = manager_->getFeatureById(v.feature_id);
-    if (feat)
-      valMap2[feat->key] = v.value;
-  }
-
-  for (const auto &nodeInfo : mergedTree) {
-    auto *rootNode = response->add_root_services();
-    buildPhysicalComparisonNode(nodeInfo, id1, id2, valMap1, valMap2, rootNode);
-  }
-
-  return grpc::Status::OK;
-}
-
-bool DeviceServiceImpl::buildPhysicalComparisonNode(
-    const ServiceNodeInfo &info, int64_t id1, int64_t id2,
-    const std::map<std::string, std::string> &valMap1,
+namespace {
+bool buildComparisonNodeHelper(
+    DeviceManager *manager, const ::ServiceNodeInfo &info, int64_t id1,
+    int64_t id2, const std::map<std::string, std::string> &valMap1,
     const std::map<std::string, std::string> &valMap2,
-    PhysicalDeviceServiceComparison *node) {
+    DeviceServiceComparison *node) {
 
   node->set_service_id(info.id);
-  node->set_description_key(info.description_key);
+  auto *text = node->mutable_info();
+  text->set_description_key(info.description_key);
   bool hasDiff = false;
 
   for (const auto &t : info.translations) {
-    auto *trans = node->add_translations();
+    auto *trans = text->add_translations();
     trans->set_language_code(t.language_code);
     trans->set_value(t.value);
   }
@@ -793,10 +775,11 @@ bool DeviceServiceImpl::buildPhysicalComparisonNode(
   for (const auto &feat : info.features) {
     auto *featComp = node->add_features();
     featComp->set_feature_id(feat.id);
-    featComp->set_feature_key(feat.feature_key);
+    auto *ftText = featComp->mutable_info();
+    ftText->set_description_key(feat.feature_key);
 
     for (const auto &t : feat.translations) {
-      auto *trans = featComp->add_translations();
+      auto *trans = ftText->add_translations();
       trans->set_language_code(t.language_code);
       trans->set_value(t.value);
     }
@@ -812,11 +795,6 @@ bool DeviceServiceImpl::buildPhysicalComparisonNode(
     }
 
     // We need to find if this logical feature key exists in both maps
-    // The info.features[i].feature_key is the description_key of the screen
-    // feature. However, for physical comparison we should use the actual
-    // parameter key if possible, but the tree already uses the translation
-    // keys. Let's assume the valMaps are keyed by the description_key of the
-    // feature for comparison.
     std::string featKey = feat.feature_key;
     bool in1 = valMap1.count(featKey);
     bool in2 = valMap2.count(featKey);
@@ -850,8 +828,8 @@ bool DeviceServiceImpl::buildPhysicalComparisonNode(
   // Recursive children
   for (const auto &childInfo : info.children) {
     auto *childNode = node->add_children();
-    if (buildPhysicalComparisonNode(childInfo, id1, id2, valMap1, valMap2,
-                                    childNode)) {
+    if (buildComparisonNodeHelper(manager, childInfo, id1, id2, valMap1,
+                                  valMap2, childNode)) {
       hasDiff = true;
     }
   }
@@ -859,25 +837,158 @@ bool DeviceServiceImpl::buildPhysicalComparisonNode(
   node->set_has_differences(hasDiff);
   return hasDiff;
 }
+} // namespace
 
-grpc::Status DeviceServiceImpl::GetAllPhysicalDevices(
-    grpc::ServerContext *context, const GetAllPhysicalDevicesRequest *request,
-    GetAllPhysicalDevicesResponse *response) {
+grpc::Status
+DeviceServiceImpl::CompareDevices(grpc::ServerContext *context,
+                                  const CompareDevicesRequest *request,
+                                  CompareDevicesResponse *response) {
 
-  std::cout << "GetAllPhysicalDevices called" << std::endl;
+  int64_t id1 = request->device_id_1();
+  int64_t id2 = request->device_id_2();
 
-  auto devices = manager_->getAllPhysicalDevices();
+  std::cout << "CompareDevices (Hierarchical) called for id1=" << id1
+            << ", id2=" << id2 << std::endl;
+
+  auto dev1 = manager_->getDeviceById(id1);
+  auto dev2 = manager_->getDeviceById(id2);
+
+  if (!dev1 || !dev2) {
+    return grpc::Status(grpc::StatusCode::NOT_FOUND,
+                        "One or both devices not found");
+  }
+
+  response->set_device_id_1(id1);
+  response->set_device_id_2(id2);
+
+  // Use a merged tree structure from BOTH devices to ensure symmetry
+  auto tree1 =
+      ::ServiceHelpers::getServiceTree(manager_, dev1->model_firmware_id);
+  auto tree2 =
+      ::ServiceHelpers::getServiceTree(manager_, dev2->model_firmware_id);
+
+  auto mergedTree = ::ServiceHelpers::mergeServiceTrees(tree1, tree2);
+
+  // Load values for comparison
+  auto values1 = manager_->getValuesForDevice(id1);
+  auto values2 = manager_->getValuesForDevice(id2);
+
+  std::map<std::string, std::string> valMap1, valMap2;
+  // Use Generic Feature KEY for mapping across different firmwares
+  for (const auto &v : values1) {
+    auto feat = manager_->getFeatureById(v.feature_id);
+    if (feat)
+      valMap1[feat->key] = v.value;
+  }
+  for (const auto &v : values2) {
+    auto feat = manager_->getFeatureById(v.feature_id);
+    if (feat)
+      valMap2[feat->key] = v.value;
+  }
+
+  for (const auto &nodeInfo : mergedTree) {
+    auto *rootNode = response->add_root_services();
+    buildComparisonNodeHelper(manager_, nodeInfo, id1, id2, valMap1, valMap2,
+                              rootNode);
+  }
+
+  return grpc::Status::OK;
+}
+
+grpc::Status
+DeviceServiceImpl::GetAllDevices(grpc::ServerContext *context,
+                                 const GetAllDevicesRequest *request,
+                                 GetAllDevicesResponse *response) {
+
+  std::cout << "GetAllDevices called" << std::endl;
+
+  auto devices = manager_->getAllDevices();
   for (const auto &d : devices) {
-    auto *pd = response->add_physical_devices();
+    auto *pd = response->add_devices();
     pd->set_id(d.id);
     pd->set_name(d.name);
-    pd->set_device_id(d.device_id);
-    pd->set_model_id(d.model_id);
-    pd->set_firmware_version_id(d.firmware_version_id);
+    pd->set_model_firmware_id(d.model_firmware_id);
     pd->set_identifier(d.identifier);
     pd->set_description(d.description);
     pd->set_comment(d.comment);
     pd->set_is_template(d.is_template);
+
+    // Populate model/firmware info
+    auto mf = manager_->getModelFirmwareById(d.model_firmware_id);
+    if (mf) {
+      auto mod = manager_->getModelById(mf->model_id);
+      if (mod) {
+        auto *mText = pd->mutable_model();
+        mText->set_description_key(mod->description_key);
+        auto trans = manager_->getTranslationsForKey(mod->description_key);
+        for (const auto &t : trans) {
+          auto *pTrans = mText->add_translations();
+          pTrans->set_language_code(t.language_code);
+          pTrans->set_value(t.value);
+        }
+      }
+      auto fw = manager_->getFirmwareVersionById(mf->firmware_id);
+      if (fw) {
+        auto *fText = pd->mutable_firmware();
+        fText->set_description_key(fw->description_key);
+        auto trans = manager_->getTranslationsForKey(fw->description_key);
+        for (const auto &t : trans) {
+          auto *pTrans = fText->add_translations();
+          pTrans->set_language_code(t.language_code);
+          pTrans->set_value(t.value);
+        }
+      }
+    }
+  }
+
+  return grpc::Status::OK;
+}
+
+grpc::Status
+DeviceServiceImpl::ListLineDevices(grpc::ServerContext *context,
+                                   const ListLineDevicesRequest *request,
+                                   ListLineDeviceResponse *response) {
+
+  int lineId = request->line_id();
+  std::cout << "ListLineDevices called for line_id=" << lineId << std::endl;
+
+  auto devices = manager_->getDevicesByLine(lineId);
+  for (const auto &d : devices) {
+    auto *pd = response->add_devices();
+    pd->set_id(d.id);
+    pd->set_name(d.name);
+    pd->set_model_firmware_id(d.model_firmware_id);
+    pd->set_identifier(d.identifier);
+    pd->set_description(d.description);
+    pd->set_comment(d.comment);
+    pd->set_is_template(d.is_template);
+
+    // Populate model/firmware info
+    auto mf = manager_->getModelFirmwareById(d.model_firmware_id);
+    if (mf) {
+      auto mod = manager_->getModelById(mf->model_id);
+      if (mod) {
+        auto *mText = pd->mutable_model();
+        mText->set_description_key(mod->description_key);
+        auto trans = manager_->getTranslationsForKey(mod->description_key);
+        for (const auto &t : trans) {
+          auto *pTrans = mText->add_translations();
+          pTrans->set_language_code(t.language_code);
+          pTrans->set_value(t.value);
+        }
+      }
+      auto fw = manager_->getFirmwareVersionById(mf->firmware_id);
+      if (fw) {
+        auto *fText = pd->mutable_firmware();
+        fText->set_description_key(fw->description_key);
+        auto trans = manager_->getTranslationsForKey(fw->description_key);
+        for (const auto &t : trans) {
+          auto *pTrans = fText->add_translations();
+          pTrans->set_language_code(t.language_code);
+          pTrans->set_value(t.value);
+        }
+      }
+    }
   }
 
   return grpc::Status::OK;
@@ -892,44 +1003,76 @@ RecordServiceImpl::GetAllRecords(grpc::ServerContext *context,
                                  GetAllRecordsResponse *response) {
   std::cout << "GetAllRecords called" << std::endl;
 
-  auto devices = manager_->getAllPhysicalDevices();
+  auto devices = manager_->getAllDevices();
   for (const auto &d : devices) {
-    auto *rec = response->add_records();
-    rec->set_id(d.id);
-    rec->set_name(d.name);
-    rec->set_identifier(d.identifier);
+    auto records = manager_->getRecordsByDevice(d.id);
+    for (const auto &r : records) {
+      auto *rec = response->add_records();
+      rec->set_id(r.id);
+      rec->set_device_id(d.id);
+      rec->set_name(d.name);
+      rec->set_identifier(d.identifier);
+      rec->set_created_at(r.created_at);
 
-    // Get names for device, model, firmware
-    auto dev = manager_->getDeviceById(d.device_id);
-    if (dev)
-      rec->set_device_name(manager_->getTranslation(dev->description_key,
-                                                    request->language_code()));
+      // Get metadata (Line, Model, Firmware)
+      auto mf = manager_->getModelFirmwareById(d.model_firmware_id);
+      if (mf) {
+        auto mod = manager_->getModelById(mf->model_id);
+        if (mod) {
+          auto line = manager_->getLineById(mod->line_id);
+          if (line) {
+            auto *lText = rec->mutable_line();
+            lText->set_description_key(line->description_key);
+            auto lineTrans =
+                manager_->getTranslationsForKey(line->description_key);
+            for (const auto &t : lineTrans) {
+              auto *pTrans = lText->add_translations();
+              pTrans->set_language_code(t.language_code);
+              pTrans->set_value(t.value);
+            }
+          }
 
-    auto mod = manager_->getModelById(d.model_id);
-    if (mod)
-      rec->set_model_name(manager_->getTranslation(mod->description_key,
-                                                   request->language_code()));
+          auto *mText = rec->mutable_model();
+          mText->set_description_key(mod->description_key);
+          auto modelTrans =
+              manager_->getTranslationsForKey(mod->description_key);
+          for (const auto &t : modelTrans) {
+            auto *pTrans = mText->add_translations();
+            pTrans->set_language_code(t.language_code);
+            pTrans->set_value(t.value);
+          }
+        }
 
-    auto fw = manager_->getFirmwareVersionById(d.firmware_version_id);
-    if (fw)
-      rec->set_firmware_name(manager_->getTranslation(
-          fw->description_key, request->language_code()));
+        auto fw = manager_->getFirmwareVersionById(mf->firmware_id);
+        if (fw) {
+          auto *fText = rec->mutable_firmware();
+          fText->set_description_key(fw->description_key);
+          auto fwTrans = manager_->getTranslationsForKey(fw->description_key);
+          for (const auto &t : fwTrans) {
+            auto *pTrans = fText->add_translations();
+            pTrans->set_language_code(t.language_code);
+            pTrans->set_value(t.value);
+          }
+        }
+      }
 
-    // Get all values
-    auto values = manager_->getValuesForPhysicalDevice(d.id);
-    for (const auto &v : values) {
-      auto *val = rec->add_values();
-      val->set_feature_id(v.feature_id);
-      val->set_value(v.value);
+      // Get values for this specific record
+      auto values = manager_->getValuesForRecord(r.id);
+      for (const auto &v : values) {
+        auto *val = rec->add_values();
+        val->set_feature_id(v.feature_id);
+        val->set_value(v.value);
 
-      auto feat = manager_->getFeatureById(v.feature_id);
-      if (feat) {
-        val->set_feature_key(feat->key);
-        auto translations = manager_->getTranslationsForKey(feat->key);
-        for (const auto &t : translations) {
-          auto *trans = val->add_translations();
-          trans->set_language_code(t.language_code);
-          trans->set_value(t.value);
+        auto feat = manager_->getFeatureById(v.feature_id);
+        if (feat) {
+          auto *vText = val->mutable_info();
+          vText->set_description_key(feat->key);
+          auto translations = manager_->getTranslationsForKey(feat->key);
+          for (const auto &t : translations) {
+            auto *pTrans = vText->add_translations();
+            pTrans->set_language_code(t.language_code);
+            pTrans->set_value(t.value);
+          }
         }
       }
     }
@@ -938,20 +1081,204 @@ RecordServiceImpl::GetAllRecords(grpc::ServerContext *context,
 }
 
 grpc::Status
-DeviceServiceImpl::CreateFullDevice(grpc::ServerContext *context,
-                                    const CreateFullDeviceRequest *request,
-                                    CreateFullDeviceResponse *response) {
-  std::cout << "CreateFullDevice called for: " << request->description_key()
+RecordServiceImpl::ListDeviceRecords(grpc::ServerContext *context,
+                                     const ListDeviceRecordsRequest *request,
+                                     ListDeviceRecordsResponse *response) {
+  int64_t deviceId = request->device_id();
+  std::cout << "ListDeviceRecords called for device_id: " << deviceId
             << std::endl;
 
-  auto *deviceProto = response->mutable_device();
-  deviceProto->set_description_key(request->description_key());
+  auto d_opt = manager_->getDeviceById(deviceId);
+  if (!d_opt) {
+    return grpc::Status(grpc::StatusCode::NOT_FOUND, "Device not found");
+  }
+
+  const auto &d = *d_opt;
+  auto records = manager_->getRecordsByDevice(deviceId);
+
+  for (const auto &r : records) {
+    auto *rec = response->add_records();
+    rec->set_id(r.id);
+    rec->set_device_id(d.id);
+    rec->set_name(d.name);
+    rec->set_identifier(d.identifier);
+    rec->set_created_at(r.created_at);
+
+    // Get metadata (Line, Model, Firmware)
+    auto mf = manager_->getModelFirmwareById(d.model_firmware_id);
+    if (mf) {
+      auto mod = manager_->getModelById(mf->model_id);
+      if (mod) {
+        auto line = manager_->getLineById(mod->line_id);
+        if (line) {
+          auto *lText = rec->mutable_line();
+          lText->set_description_key(line->description_key);
+          auto lineTrans =
+              manager_->getTranslationsForKey(line->description_key);
+          for (const auto &t : lineTrans) {
+            auto *pTrans = lText->add_translations();
+            pTrans->set_language_code(t.language_code);
+            pTrans->set_value(t.value);
+          }
+        }
+
+        auto *mText = rec->mutable_model();
+        mText->set_description_key(mod->description_key);
+        auto modelTrans = manager_->getTranslationsForKey(mod->description_key);
+        for (const auto &t : modelTrans) {
+          auto *pTrans = mText->add_translations();
+          pTrans->set_language_code(t.language_code);
+          pTrans->set_value(t.value);
+        }
+      }
+
+      auto fw = manager_->getFirmwareVersionById(mf->firmware_id);
+      if (fw) {
+        auto *fText = rec->mutable_firmware();
+        fText->set_description_key(fw->description_key);
+        auto fwTrans = manager_->getTranslationsForKey(fw->description_key);
+        for (const auto &t : fwTrans) {
+          auto *pTrans = fText->add_translations();
+          pTrans->set_language_code(t.language_code);
+          pTrans->set_value(t.value);
+        }
+      }
+    }
+
+    // Get values for this specific record
+    auto values = manager_->getValuesForRecord(r.id);
+    for (const auto &v : values) {
+      auto *val = rec->add_values();
+      val->set_feature_id(v.feature_id);
+      val->set_value(v.value);
+
+      auto feat = manager_->getFeatureById(v.feature_id);
+      if (feat) {
+        auto *vText = val->mutable_info();
+        vText->set_description_key(feat->key);
+        auto translations = manager_->getTranslationsForKey(feat->key);
+        for (const auto &t : translations) {
+          auto *trans = vText->add_translations();
+          trans->set_language_code(t.language_code);
+          trans->set_value(t.value);
+        }
+      }
+    }
+  }
+
+  return grpc::Status::OK;
+}
+
+grpc::Status
+RecordServiceImpl::SaveDeviceRecord(grpc::ServerContext *context,
+                                    const SaveDeviceRecordRequest *request,
+                                    GenericResponse *response) {
+  int64_t deviceId = request->device_id();
+  std::cout << "SaveDeviceRecord called for device_id: " << deviceId
+            << std::endl;
+
+  // 1. Create a new record
+  int64_t device_record_id = manager_->addDeviceRecord(deviceId);
+  if (device_record_id <= 0) {
+    response->set_success(false);
+    response->set_message("Failed to create device record");
+    return grpc::Status::OK;
+  }
+
+  // 2. Save all values to this record
+  bool allSuccess = true;
+  for (const auto &v : request->values()) {
+    if (!manager_->setRecordValue(device_record_id, v.feature_id(),
+                                  v.value())) {
+      allSuccess = false;
+    }
+  }
+
+  response->set_success(allSuccess);
+  response->set_message(allSuccess ? "Device record saved successfully"
+                                   : "Device record saved with some errors");
+
+  return grpc::Status::OK;
+}
+
+grpc::Status
+RecordServiceImpl::CompareRecords(grpc::ServerContext *context,
+                                  const CompareRecordsRequest *request,
+                                  CompareRecordsResponse *response) {
+  int64_t rid1 = request->record_id_1();
+  int64_t rid2 = request->record_id_2();
+
+  std::cout << "CompareRecords called for rid1=" << rid1 << ", rid2=" << rid2
+            << std::endl;
+
+  auto rec1 = manager_->getDeviceRecordById(rid1);
+  auto rec2 = manager_->getDeviceRecordById(rid2);
+
+  if (!rec1 || !rec2) {
+    return grpc::Status(grpc::StatusCode::NOT_FOUND,
+                        "One or both records not found");
+  }
+
+  auto dev1 = manager_->getDeviceById(rec1->device_id);
+  auto dev2 = manager_->getDeviceById(rec2->device_id);
+
+  if (!dev1 || !dev2) {
+    return grpc::Status(grpc::StatusCode::NOT_FOUND,
+                        "Associated devices not found");
+  }
+
+  response->set_record_id_1(rid1);
+  response->set_record_id_2(rid2);
+
+  // Tree structure based on the device's model/firmware (symmetry merge)
+  auto tree1 =
+      ::ServiceHelpers::getServiceTree(manager_, dev1->model_firmware_id);
+  auto tree2 =
+      ::ServiceHelpers::getServiceTree(manager_, dev2->model_firmware_id);
+  auto mergedTree = ::ServiceHelpers::mergeServiceTrees(tree1, tree2);
+
+  // Values from the specific records
+  auto values1 = manager_->getValuesForRecord(rid1);
+  auto values2 = manager_->getValuesForRecord(rid2);
+
+  std::map<std::string, std::string> valMap1, valMap2;
+  // Use Generic Feature KEY for mapping
+  for (const auto &v : values1) {
+    auto feat = manager_->getFeatureById(v.feature_id);
+    if (feat)
+      valMap1[feat->key] = v.value;
+  }
+  for (const auto &v : values2) {
+    auto feat = manager_->getFeatureById(v.feature_id);
+    if (feat)
+      valMap2[feat->key] = v.value;
+  }
+
+  for (const auto &nodeInfo : mergedTree) {
+    auto *rootNode = response->add_root_services();
+    buildComparisonNodeHelper(manager_, nodeInfo, rid1, rid2, valMap1, valMap2,
+                              rootNode);
+  }
+
+  return grpc::Status::OK;
+}
+
+grpc::Status
+DeviceServiceImpl::CreateFullLine(grpc::ServerContext *context,
+                                  const CreateFullLineRequest *request,
+                                  CreateFullLineResponse *response) {
+  std::cout << "CreateFullLine called for: " << request->description_key()
+            << std::endl;
+
+  auto *deviceProto = response->mutable_line();
+  auto *devInfo = deviceProto->mutable_info();
+  devInfo->set_description_key(request->description_key());
 
   // 1. Device Translations
   std::vector<std::pair<std::string, std::string>> devTranslations;
   for (const auto &t : request->translations()) {
     devTranslations.push_back({t.language_code(), t.value()});
-    auto *transProto = deviceProto->add_translations();
+    auto *transProto = devInfo->add_translations();
     transProto->set_language_code(t.language_code());
     transProto->set_value(t.value());
   }
@@ -960,11 +1287,11 @@ DeviceServiceImpl::CreateFullDevice(grpc::ServerContext *context,
                                      devTranslations);
   }
 
-  // 2. Add Device
-  int deviceId = manager_->addDevice(request->description_key());
+  // 2. Add Line
+  int deviceId = manager_->addLine(request->description_key());
   if (deviceId <= 0) {
     response->set_success(false);
-    response->set_message("Failed to create device (it may already exist)");
+    response->set_message("Failed to create line (it may already exist)");
     return grpc::Status::OK;
   }
   deviceProto->set_id(deviceId);
@@ -972,13 +1299,14 @@ DeviceServiceImpl::CreateFullDevice(grpc::ServerContext *context,
   // 3. Models
   for (const auto &modelReq : request->models()) {
     auto *modelProto = deviceProto->add_models();
-    modelProto->set_description_key(modelReq.description_key());
+    auto *mInfo = modelProto->mutable_info();
+    mInfo->set_description_key(modelReq.description_key());
 
     // Model Translations
     std::vector<std::pair<std::string, std::string>> modelTranslations;
     for (const auto &t : modelReq.translations()) {
       modelTranslations.push_back({t.language_code(), t.value()});
-      auto *transProto = modelProto->add_translations();
+      auto *transProto = mInfo->add_translations();
       transProto->set_language_code(t.language_code());
       transProto->set_value(t.value());
     }
@@ -996,13 +1324,14 @@ DeviceServiceImpl::CreateFullDevice(grpc::ServerContext *context,
     // 4. Firmwares
     for (const auto &fwReq : modelReq.firmwares()) {
       auto *fwProto = modelProto->add_firmwares();
-      fwProto->set_description_key(fwReq.description_key());
+      auto *fInfo = fwProto->mutable_info();
+      fInfo->set_description_key(fwReq.description_key());
 
       // Firmware Translations
       std::vector<std::pair<std::string, std::string>> fwTranslations;
       for (const auto &t : fwReq.translations()) {
         fwTranslations.push_back({t.language_code(), t.value()});
-        auto *transProto = fwProto->add_translations();
+        auto *transProto = fInfo->add_translations();
         transProto->set_language_code(t.language_code());
         transProto->set_value(t.value());
       }
@@ -1023,96 +1352,124 @@ DeviceServiceImpl::CreateFullDevice(grpc::ServerContext *context,
   }
 
   response->set_success(true);
-  response->set_message("Full device hierarchy created successfully");
+  response->set_message("Full line hierarchy created successfully");
   return grpc::Status::OK;
 }
 
-grpc::Status DeviceServiceImpl::CreatePhysicalDevice(
-    grpc::ServerContext *context, const CreatePhysicalDeviceRequest *request,
-    CreatePhysicalDeviceResponse *response) {
+grpc::Status DeviceServiceImpl::CreateDevice(grpc::ServerContext *context,
+                                             const CreateDeviceRequest *request,
+                                             CreateDeviceResponse *response) {
 
-  PhysicalDevice device;
+  int dmfId =
+      manager_->getModelFirmwareId(request->model_id(), request->firmware_id());
+  if (dmfId <= 0) {
+    response->set_success(false);
+    response->set_message("Model-Firmware combination not found");
+    return grpc::Status::OK;
+  }
+
+  Device device;
   device.name = request->name();
-  device.device_id = request->device_id();
-  device.model_id = request->model_id();
-  device.firmware_version_id = request->firmware_version_id();
+  device.model_firmware_id = dmfId;
   device.identifier = request->identifier();
   device.description = request->description();
   device.comment = request->comment();
   device.is_template = request->is_template();
 
-  int64_t id = manager_->addPhysicalDevice(device);
+  int64_t id = manager_->addDevice(device);
 
   if (id > 0) {
     response->set_success(true);
     response->set_id(id);
-    response->set_message("Physical device created successfully");
+    response->set_message("Device created successfully");
   } else {
     response->set_success(false);
-    response->set_message("Failed to create physical device");
+    response->set_message("Failed to create device");
   }
 
   return grpc::Status::OK;
 }
 
-grpc::Status
-DeviceServiceImpl::GetPhysicalDevices(grpc::ServerContext *context,
-                                      const GetPhysicalDevicesRequest *request,
-                                      GetPhysicalDevicesResponse *response) {
+grpc::Status DeviceServiceImpl::GetDevices(grpc::ServerContext *context,
+                                           const GetDevicesRequest *request,
+                                           GetDevicesResponse *response) {
 
-  int deviceId = request->device_id();
-  std::cout << "GetPhysicalDevices called for device_id: " << deviceId
-            << std::endl;
+  int64_t deviceId = request->device_id();
+  std::cout << "GetDevices called for device_id: " << deviceId << std::endl;
 
-  auto devices = manager_->getPhysicalDevicesByDevice(deviceId);
-  for (const auto &d : devices) {
-    auto *pd = response->add_physical_devices();
+  auto d_opt = manager_->getDeviceById(deviceId);
+  if (d_opt) {
+    const auto &d = *d_opt;
+    auto *pd = response->add_devices();
     pd->set_id(d.id);
     pd->set_name(d.name);
-    pd->set_device_id(d.device_id);
-    pd->set_model_id(d.model_id);
-    pd->set_firmware_version_id(d.firmware_version_id);
+    pd->set_model_firmware_id(d.model_firmware_id);
     pd->set_identifier(d.identifier);
     pd->set_description(d.description);
     pd->set_comment(d.comment);
     pd->set_is_template(d.is_template);
+
+    // Populate model/firmware info
+    auto mf = manager_->getModelFirmwareById(d.model_firmware_id);
+    if (mf) {
+      auto mod = manager_->getModelById(mf->model_id);
+      if (mod) {
+        auto *mText = pd->mutable_model();
+        mText->set_description_key(mod->description_key);
+        auto trans = manager_->getTranslationsForKey(mod->description_key);
+        for (const auto &t : trans) {
+          auto *pTrans = mText->add_translations();
+          pTrans->set_language_code(t.language_code);
+          pTrans->set_value(t.value);
+        }
+      }
+      auto fw = manager_->getFirmwareVersionById(mf->firmware_id);
+      if (fw) {
+        auto *fText = pd->mutable_firmware();
+        fText->set_description_key(fw->description_key);
+        auto trans = manager_->getTranslationsForKey(fw->description_key);
+        for (const auto &t : trans) {
+          auto *pTrans = fText->add_translations();
+          pTrans->set_language_code(t.language_code);
+          pTrans->set_value(t.value);
+        }
+      }
+    }
   }
 
   return grpc::Status::OK;
 }
 
-grpc::Status DeviceServiceImpl::UpdatePhysicalDevice(
-    grpc::ServerContext *context, const UpdatePhysicalDeviceRequest *request,
-    GenericResponse *response) {
+grpc::Status DeviceServiceImpl::UpdateDevice(grpc::ServerContext *context,
+                                             const UpdateDeviceRequest *request,
+                                             GenericResponse *response) {
 
-  const auto &proto = request->physical_device();
-  PhysicalDevice device;
+  const auto &proto = request->device();
+  Device device;
   device.id = proto.id();
   device.name = proto.name();
-  device.device_id = proto.device_id();
-  device.model_id = proto.model_id();
-  device.firmware_version_id = proto.firmware_version_id();
+  device.model_firmware_id = proto.model_firmware_id();
   device.identifier = proto.identifier();
   device.description = proto.description();
   device.comment = proto.comment();
   device.is_template = proto.is_template();
 
-  bool success = manager_->updatePhysicalDevice(device);
+  bool success = manager_->updateDevice(device);
   response->set_success(success);
-  response->set_message(success ? "Physical device updated successfully"
-                                : "Failed to update physical device");
+  response->set_message(success ? "Device updated successfully"
+                                : "Failed to update device");
 
   return grpc::Status::OK;
 }
 
-grpc::Status DeviceServiceImpl::DeletePhysicalDevice(
-    grpc::ServerContext *context, const DeletePhysicalDeviceRequest *request,
-    GenericResponse *response) {
+grpc::Status DeviceServiceImpl::DeleteDevice(grpc::ServerContext *context,
+                                             const DeleteDeviceRequest *request,
+                                             GenericResponse *response) {
 
-  bool success = manager_->deletePhysicalDevice(request->id());
+  bool success = manager_->deleteDevice(request->id());
   response->set_success(success);
-  response->set_message(success ? "Physical device deleted successfully"
-                                : "Failed to delete physical device");
+  response->set_message(success ? "Device deleted successfully"
+                                : "Failed to delete device");
 
   return grpc::Status::OK;
 }

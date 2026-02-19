@@ -6,23 +6,24 @@ import Link from 'next/link';
 export default async function Page({
     searchParams,
 }: {
-    searchParams: { deviceId?: string; modelId?: string; firmwareId?: string; lang?: string; physicalDeviceId?: string };
+    searchParams: { lineId?: string; modelId?: string; firmwareId?: string; lang?: string; deviceId?: string };
 }) {
-    const deviceId = searchParams.deviceId ? parseInt(searchParams.deviceId) : null;
+    const lineId = searchParams.lineId ? parseInt(searchParams.lineId) : null;
     const modelId = searchParams.modelId ? parseInt(searchParams.modelId) : null;
     const firmwareId = searchParams.firmwareId ? parseInt(searchParams.firmwareId) : null;
-    const physicalDeviceId = searchParams.physicalDeviceId ? parseInt(searchParams.physicalDeviceId) : null;
+    const deviceId = searchParams.deviceId ? parseInt(searchParams.deviceId) : null;
     const currentLang = searchParams.lang || 'enUs';
 
 
-    const [devices, languages] = await Promise.all([
+    const [lines, languages] = await Promise.all([
         getInventory(),
         getLanguages()
     ]);
 
-    const getTranslation = (translations: any[], lang: string = currentLang) => {
+    const getTranslation = (data: any, lang: string = currentLang) => {
+        const translations = data?.translations || data?.info?.translations;
         const t = translations?.find((t: any) => t.language_code === lang) || translations?.[0];
-        return t?.value || 'N/A';
+        return t?.value || data?.description_key || data?.info?.description_key || 'N/A';
     };
 
     const LanguageSwitcher = () => (
@@ -49,11 +50,11 @@ export default async function Page({
         </div>
     );
 
-    // If device, model and firmware are selected, show the configurator
-    if (deviceId && modelId && firmwareId) {
-        const services = await getServiceTree(deviceId, modelId, firmwareId);
-        const device = devices.find((d: any) => d.id === deviceId);
-        const model = device?.models?.find((m: any) => m.id === modelId);
+    // If line, model and firmware are selected, show the configurator
+    if (lineId && modelId && firmwareId) {
+        const services = await getServiceTree(lineId, modelId, firmwareId);
+        const line = lines.find((d: any) => d.id === lineId);
+        const model = line?.models?.find((m: any) => m.id === modelId);
         const firmware = model?.firmwares?.find((f: any) => f.id === firmwareId);
 
         return (
@@ -62,11 +63,11 @@ export default async function Page({
                 <div className="container">
                     <header>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '1.5rem', flex: 1 }}>
-                            <Link href={{ pathname: '/', query: { deviceId, modelId, lang: currentLang } }} className="back-button" style={{ marginBottom: 0 }}>
+                            <Link href={{ pathname: '/', query: { lineId, modelId, lang: currentLang } }} className="back-button" style={{ marginBottom: 0 }}>
                                 <ArrowLeft size={16} />
                             </Link>
                             <div>
-                                <h1 style={{ fontSize: '1.75rem' }}>{getTranslation(device?.translations)} / {getTranslation(model?.translations)} / {getTranslation(firmware?.translations)}</h1>
+                                <h1 style={{ fontSize: '1.75rem' }}>{getTranslation(line)} / {getTranslation(model)} / {getTranslation(firmware)}</h1>
                                 <p style={{ color: 'var(--text-muted)', fontSize: '0.875rem', marginTop: '0.25rem' }}>
                                     Configuration Dashboard
                                 </p>
@@ -78,24 +79,24 @@ export default async function Page({
 
                     </header>
 
-                    <Configurator deviceId={deviceId} modelId={modelId} firmwareId={firmwareId} physicalDeviceId={physicalDeviceId || undefined} services={services} currentLang={currentLang} />
+                    <Configurator lineId={lineId} modelId={modelId} firmwareId={firmwareId} deviceId={deviceId || undefined} services={services} currentLang={currentLang} />
 
                 </div>
             </main>
         );
     }
 
-    // If device and model are selected, show firmware selection
-    if (deviceId && modelId) {
-        const device = devices.find((d: any) => d.id === deviceId);
-        const model = device?.models?.find((m: any) => m.id === modelId);
+    // If line and model are selected, show firmware selection
+    if (lineId && modelId) {
+        const line = lines.find((d: any) => d.id === lineId);
+        const model = line?.models?.find((m: any) => m.id === modelId);
         return (
             <main>
                 <div className="gradient-bg" />
                 <div className="container">
                     <header>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '1.5rem', flex: 1 }}>
-                            <Link href={{ pathname: '/', query: { deviceId, lang: currentLang } }} className="back-button" style={{ marginBottom: 0 }}>
+                            <Link href={{ pathname: '/', query: { lineId, lang: currentLang } }} className="back-button" style={{ marginBottom: 0 }}>
                                 <ArrowLeft size={16} />
                             </Link>
                             <h1>Select Firmware Version</h1>
@@ -107,11 +108,11 @@ export default async function Page({
                         {model?.firmwares?.map((fw: any) => (
                             <Link
                                 key={fw.id}
-                                href={{ pathname: '/', query: { deviceId, modelId, firmwareId: fw.id, lang: currentLang } }}
+                                href={{ pathname: '/', query: { lineId, modelId, firmwareId: fw.id, lang: currentLang } }}
                                 className="card selection-card"
                             >
                                 <Cpu size={48} color="var(--primary)" style={{ marginBottom: '1rem' }} />
-                                <h3>Version {getTranslation(fw.translations)}</h3>
+                                <h3>Version {getTranslation(fw)}</h3>
                                 <p style={{ color: 'var(--text-muted)', fontSize: '0.875rem' }}>
                                     {fw.services?.length || 0} top-level services
                                 </p>
@@ -126,9 +127,9 @@ export default async function Page({
         );
     }
 
-    // If only device is selected, show model selection
-    if (deviceId) {
-        const device = devices.find((d: any) => d.id === deviceId);
+    // If only line is selected, show model selection
+    if (lineId) {
+        const line = lines.find((d: any) => d.id === lineId);
         return (
             <main>
                 <div className="gradient-bg" />
@@ -144,14 +145,14 @@ export default async function Page({
                     </header>
 
                     <div className="selector-grid">
-                        {device?.models?.map((md: any) => (
+                        {line?.models?.map((md: any) => (
                             <Link
                                 key={md.id}
-                                href={{ pathname: '/', query: { deviceId, modelId: md.id, lang: currentLang } }}
+                                href={{ pathname: '/', query: { lineId, modelId: md.id, lang: currentLang } }}
                                 className="card selection-card"
                             >
                                 <Cpu size={48} color="var(--primary)" style={{ marginBottom: '1rem' }} />
-                                <h3>{getTranslation(md.translations)}</h3>
+                                <h3>{getTranslation(md)}</h3>
                                 <p style={{ color: 'var(--text-muted)', fontSize: '0.875rem' }}>
                                     {md.firmwares?.length || 0} firmware versions
                                 </p>
@@ -166,21 +167,21 @@ export default async function Page({
         );
     }
 
-    // Default: Show device selection
+    // Default: Show line selection
     return (
         <main>
             <div className="gradient-bg" />
             <div className="container">
                 <header>
                     <div style={{ flex: 1 }}>
-                        <h1>Device Management</h1>
+                        <h1>Management Dashboard</h1>
                         <p style={{ color: 'var(--text-muted)', fontSize: '0.875rem' }}>
-                            Select a hardware node to begin configuration
+                            Select a hardware line to begin configuration
                         </p>
                     </div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '1.5rem' }}>
                         <Link
-                            href={{ pathname: '/devices', query: { lang: currentLang } }}
+                            href={{ pathname: '/lines', query: { lang: currentLang } }}
                             className="badge"
                             style={{
                                 background: 'var(--glass)',
@@ -201,23 +202,23 @@ export default async function Page({
 
 
                 <div className="selector-grid">
-                    {devices.map((device: any) => (
+                    {lines.map((line: any) => (
                         <Link
-                            key={device.id}
-                            href={{ pathname: '/', query: { deviceId: device.id, lang: currentLang } }}
+                            key={line.id}
+                            href={{ pathname: '/', query: { lineId: line.id, lang: currentLang } }}
                             className="card selection-card"
                         >
                             <Server size={48} color="var(--primary)" style={{ marginBottom: '1rem' }} />
-                            <h3>{getTranslation(device.translations)}</h3>
+                            <h3>{getTranslation(line)}</h3>
                             <div style={{ marginTop: '1.5rem', color: 'var(--accent)' }}>
-                                Open Device <ChevronRight size={14} />
+                                Open Line <ChevronRight size={14} />
                             </div>
                         </Link>
                     ))}
 
-                    {devices.length === 0 && (
+                    {lines.length === 0 && (
                         <div className="card" style={{ gridColumn: '1/-1', padding: '4rem', textAlign: 'center' }}>
-                            <p style={{ color: 'var(--text-muted)' }}>No devices detected. Verify C++ server status.</p>
+                            <p style={{ color: 'var(--text-muted)' }}>No hardware lines detected. Verify C++ server status.</p>
                         </div>
                     )}
                 </div>

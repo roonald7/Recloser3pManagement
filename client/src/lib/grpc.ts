@@ -20,9 +20,14 @@ export const client = new deviceProto.DeviceService(
     grpc.credentials.createInsecure()
 );
 
-export const promisifyGrpc = <T>(method: any, request: any): Promise<T> => {
+export const recordClient = new deviceProto.RecordService(
+    process.env.GRPC_SERVER_ADDR || 'localhost:50051',
+    grpc.credentials.createInsecure()
+);
+
+export const promisifyGrpc = <T>(cli: any, method: any, request: any): Promise<T> => {
     return new Promise((resolve, reject) => {
-        method.call(client, request, (error: any, response: T) => {
+        method.call(cli, request, (error: any, response: T) => {
             if (error) {
                 reject(error);
             } else {

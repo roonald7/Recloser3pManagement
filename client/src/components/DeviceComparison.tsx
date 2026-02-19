@@ -1,8 +1,8 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { comparePhysicalDevices } from '../app/actions';
-import { AlertCircle, CheckCircle2, ChevronRight, ChevronDown, Folder, Shield, Settings, Zap } from 'lucide-react';
+import { compareDevices, compareRecords } from '../app/actions';
+import { AlertCircle, CheckCircle2, ChevronRight, ChevronDown, Folder, Shield, Settings, Zap, History } from 'lucide-react';
 
 interface DeviceComparisonProps {
     id1: number;
@@ -10,6 +10,7 @@ interface DeviceComparisonProps {
     deviceName1: string;
     deviceName2: string;
     languageCode: string;
+    type?: 'device' | 'record';
     onClose: () => void;
 }
 
@@ -26,9 +27,15 @@ const getValueDisplay = (val: string, options: any[], lang: string) => {
     return val;
 };
 
+const getTranslation = (data: any, lang: string) => {
+    const translations = data?.translations || data?.info?.translations;
+    const t = translations?.find((t: any) => t.language_code === lang) || translations?.[0];
+    return t?.value || data?.description_key || data?.info?.description_key || 'N/A';
+};
+
 const ServiceNode = ({ node, lang, level = 0 }: { node: any, lang: string, level?: number }) => {
     const [isOpen, setIsOpen] = useState(node.has_differences || level < 1);
-    const title = node.translations?.find((t: any) => t.language_code === lang)?.value || node.description_key;
+    const title = getTranslation(node, lang);
 
     // Sort features: differences first
     const sortedFeatures = [...(node.features || [])].sort((a, b) => (b.is_different ? 1 : 0) - (a.is_different ? 1 : 0));
@@ -89,7 +96,7 @@ const ServiceNode = ({ node, lang, level = 0 }: { node: any, lang: string, level
                                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                                     {feat.is_different ? <AlertCircle size={14} color="#f87171" /> : <CheckCircle2 size={14} color="var(--accent)" />}
                                     <span style={{ fontSize: '0.9rem', fontWeight: 500 }}>
-                                        {feat.translations?.find((t: any) => t.language_code === lang)?.value || feat.feature_key}
+                                        {feat.info?.translations?.find((t: any) => t.language_code === lang)?.value || feat.info?.description_key}
                                     </span>
                                 </div>
                                 <div style={{ padding: '0.5rem', background: '#000', borderRadius: '0.5rem', textAlign: 'center', fontSize: '0.875rem' }}>
@@ -134,19 +141,24 @@ const ServiceNode = ({ node, lang, level = 0 }: { node: any, lang: string, level
     );
 };
 
-export default function DeviceComparison({ id1, id2, deviceName1, deviceName2, languageCode, onClose }: DeviceComparisonProps) {
+export default function DeviceComparison({ id1, id2, deviceName1, deviceName2, languageCode, type = 'device', onClose }: DeviceComparisonProps) {
     const [comparison, setComparison] = useState<any>(null);
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
         const fetchComparison = async () => {
             setLoading(true);
-            const result = await comparePhysicalDevices(id1, id2);
+            let result;
+            if (type === 'record') {
+                result = await compareRecords(id1, id2);
+            } else {
+                result = await compareDevices(id1, id2);
+            }
             setComparison(result);
             setLoading(false);
         };
         fetchComparison();
-    }, [id1, id2]);
+    }, [id1, id2, type]);
 
     if (loading) {
         return (
@@ -163,13 +175,15 @@ export default function DeviceComparison({ id1, id2, deviceName1, deviceName2, l
         <div className="card" style={{ width: '100%', maxWidth: '1000px', margin: '0 auto' }}>
             <div className="card-header" style={{ marginBottom: '2rem' }}>
                 <div>
-                    <h2 style={{ fontSize: '1.5rem', marginBottom: '0.5rem' }}>Service Tree Comparison</h2>
+                    <h2 style={{ fontSize: '1.5rem', marginBottom: '0.5rem' }}>
+                        {type === 'record' ? 'Historical Record Comparison' : 'Service Tree Comparison'}
+                    </h2>
                     <p style={{ color: 'var(--text-muted)' }}>
                         <span style={{ color: 'var(--accent)' }}>{deviceName1}</span> (Base) vs <span style={{ color: 'var(--primary)' }}>{deviceName2}</span>
                     </p>
                 </div>
                 <button onClick={onClose} className="back-button" style={{ marginBottom: 0 }}>
-                    Back to Fleet
+                    {type === 'record' ? 'Back to History' : 'Back to Fleet'}
                 </button>
             </div>
 

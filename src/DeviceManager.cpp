@@ -202,8 +202,8 @@ DeviceManager::getTranslationsForKey(const std::string &key) {
   return results;
 }
 
-int DeviceManager::addDevice(const std::string &key) {
-  const char *sql = "INSERT INTO Devices (description_key) VALUES (?);";
+int DeviceManager::addLine(const std::string &key) {
+  const char *sql = "INSERT INTO Lines (description_key) VALUES (?);";
   sqlite3_stmt *stmt;
   if (sqlite3_prepare_v2(db, sql, -1, &stmt, nullptr) != SQLITE_OK)
     return 0;
@@ -219,8 +219,8 @@ int DeviceManager::addDevice(const std::string &key) {
   return 0;
 }
 
-bool DeviceManager::updateDevice(int id, const std::string &key) {
-  const char *sql = "UPDATE Devices SET description_key = ? WHERE id = ?;";
+bool DeviceManager::updateLine(int id, const std::string &key) {
+  const char *sql = "UPDATE Lines SET description_key = ? WHERE id = ?;";
   sqlite3_stmt *stmt;
   if (sqlite3_prepare_v2(db, sql, -1, &stmt, nullptr) != SQLITE_OK)
     return false;
@@ -233,8 +233,8 @@ bool DeviceManager::updateDevice(int id, const std::string &key) {
   return rc == SQLITE_DONE;
 }
 
-bool DeviceManager::deleteDevice(int id) {
-  const char *sql = "DELETE FROM Devices WHERE id = ?;";
+bool DeviceManager::deleteLine(int id) {
+  const char *sql = "DELETE FROM Lines WHERE id = ?;";
   sqlite3_stmt *stmt;
   if (sqlite3_prepare_v2(db, sql, -1, &stmt, nullptr) != SQLITE_OK)
     return false;
@@ -245,14 +245,14 @@ bool DeviceManager::deleteDevice(int id) {
   return rc == SQLITE_DONE;
 }
 
-std::vector<DeviceRecord> DeviceManager::getAllDevices() {
-  std::vector<DeviceRecord> records;
-  const char *sql = "SELECT id, description_key FROM Devices;";
+std::vector<LineRecord> DeviceManager::getAllLines() {
+  std::vector<LineRecord> records;
+  const char *sql = "SELECT id, description_key FROM Lines;";
   sqlite3_stmt *stmt;
 
   if (sqlite3_prepare_v2(db, sql, -1, &stmt, nullptr) == SQLITE_OK) {
     while (sqlite3_step(stmt) == SQLITE_ROW) {
-      DeviceRecord rec;
+      LineRecord rec;
       rec.id = sqlite3_column_int(stmt, 0);
       rec.description_key =
           reinterpret_cast<const char *>(sqlite3_column_text(stmt, 1));
@@ -263,15 +263,15 @@ std::vector<DeviceRecord> DeviceManager::getAllDevices() {
   return records;
 }
 
-std::optional<DeviceRecord> DeviceManager::getDeviceById(int id) {
-  const char *sql = "SELECT id, description_key FROM Devices WHERE id = ?;";
+std::optional<LineRecord> DeviceManager::getLineById(int id) {
+  const char *sql = "SELECT id, description_key FROM Lines WHERE id = ?;";
   sqlite3_stmt *stmt;
-  std::optional<DeviceRecord> result = std::nullopt;
+  std::optional<LineRecord> result = std::nullopt;
 
   if (sqlite3_prepare_v2(db, sql, -1, &stmt, nullptr) == SQLITE_OK) {
     sqlite3_bind_int(stmt, 1, id);
     if (sqlite3_step(stmt) == SQLITE_ROW) {
-      DeviceRecord rec;
+      LineRecord rec;
       rec.id = sqlite3_column_int(stmt, 0);
       rec.description_key =
           reinterpret_cast<const char *>(sqlite3_column_text(stmt, 1));
@@ -282,15 +282,15 @@ std::optional<DeviceRecord> DeviceManager::getDeviceById(int id) {
   return result;
 }
 
-int DeviceManager::addModel(const std::string &key, int deviceId) {
+int DeviceManager::addModel(const std::string &key, int lineId) {
   const char *sql =
-      "INSERT INTO Models (description_key, device_id) VALUES (?, ?);";
+      "INSERT INTO Models (description_key, line_id) VALUES (?, ?);";
   sqlite3_stmt *stmt;
   if (sqlite3_prepare_v2(db, sql, -1, &stmt, nullptr) != SQLITE_OK)
     return 0;
 
   sqlite3_bind_text(stmt, 1, key.c_str(), -1, SQLITE_TRANSIENT);
-  sqlite3_bind_int(stmt, 2, deviceId);
+  sqlite3_bind_int(stmt, 2, lineId);
 
   int rc = sqlite3_step(stmt);
   sqlite3_finalize(stmt);
@@ -301,15 +301,15 @@ int DeviceManager::addModel(const std::string &key, int deviceId) {
   return 0;
 }
 
-bool DeviceManager::updateModel(int id, const std::string &key, int deviceId) {
+bool DeviceManager::updateModel(int id, const std::string &key, int lineId) {
   const char *sql =
-      "UPDATE Models SET description_key = ?, device_id = ? WHERE id = ?;";
+      "UPDATE Models SET description_key = ?, line_id = ? WHERE id = ?;";
   sqlite3_stmt *stmt;
   if (sqlite3_prepare_v2(db, sql, -1, &stmt, nullptr) != SQLITE_OK)
     return false;
 
   sqlite3_bind_text(stmt, 1, key.c_str(), -1, SQLITE_TRANSIENT);
-  sqlite3_bind_int(stmt, 2, deviceId);
+  sqlite3_bind_int(stmt, 2, lineId);
   sqlite3_bind_int(stmt, 3, id);
 
   int rc = sqlite3_step(stmt);
@@ -331,7 +331,7 @@ bool DeviceManager::deleteModel(int id) {
 
 std::vector<ModelRecord> DeviceManager::getAllModels() {
   std::vector<ModelRecord> records;
-  const char *sql = "SELECT id, description_key, device_id FROM Models;";
+  const char *sql = "SELECT id, description_key, line_id FROM Models;";
   sqlite3_stmt *stmt;
 
   if (sqlite3_prepare_v2(db, sql, -1, &stmt, nullptr) == SQLITE_OK) {
@@ -340,7 +340,7 @@ std::vector<ModelRecord> DeviceManager::getAllModels() {
       rec.id = sqlite3_column_int(stmt, 0);
       rec.description_key =
           reinterpret_cast<const char *>(sqlite3_column_text(stmt, 1));
-      rec.device_id = sqlite3_column_int(stmt, 2);
+      rec.line_id = sqlite3_column_int(stmt, 2);
       records.push_back(rec);
     }
   }
@@ -348,20 +348,20 @@ std::vector<ModelRecord> DeviceManager::getAllModels() {
   return records;
 }
 
-std::vector<ModelRecord> DeviceManager::getModelsForDevice(int deviceId) {
+std::vector<ModelRecord> DeviceManager::getModelsForLine(int lineId) {
   std::vector<ModelRecord> records;
   const char *sql =
-      "SELECT id, description_key, device_id FROM Models WHERE device_id = ?;";
+      "SELECT id, description_key, line_id FROM Models WHERE line_id = ?;";
   sqlite3_stmt *stmt;
 
   if (sqlite3_prepare_v2(db, sql, -1, &stmt, nullptr) == SQLITE_OK) {
-    sqlite3_bind_int(stmt, 1, deviceId);
+    sqlite3_bind_int(stmt, 1, lineId);
     while (sqlite3_step(stmt) == SQLITE_ROW) {
       ModelRecord rec;
       rec.id = sqlite3_column_int(stmt, 0);
       rec.description_key =
           reinterpret_cast<const char *>(sqlite3_column_text(stmt, 1));
-      rec.device_id = sqlite3_column_int(stmt, 2);
+      rec.line_id = sqlite3_column_int(stmt, 2);
       records.push_back(rec);
     }
   }
@@ -371,7 +371,7 @@ std::vector<ModelRecord> DeviceManager::getModelsForDevice(int deviceId) {
 
 std::optional<ModelRecord> DeviceManager::getModelById(int id) {
   const char *sql =
-      "SELECT id, description_key, device_id FROM Models WHERE id = ?;";
+      "SELECT id, description_key, line_id FROM Models WHERE id = ?;";
   sqlite3_stmt *stmt;
   std::optional<ModelRecord> result = std::nullopt;
 
@@ -382,7 +382,7 @@ std::optional<ModelRecord> DeviceManager::getModelById(int id) {
       rec.id = sqlite3_column_int(stmt, 0);
       rec.description_key =
           reinterpret_cast<const char *>(sqlite3_column_text(stmt, 1));
-      rec.device_id = sqlite3_column_int(stmt, 2);
+      rec.line_id = sqlite3_column_int(stmt, 2);
       result = rec;
     }
   }
@@ -525,6 +525,26 @@ int DeviceManager::getModelFirmwareId(int modelId, int firmwareId) {
   }
   sqlite3_finalize(stmt);
   return id;
+}
+
+std::optional<ModelFirmwareRecord> DeviceManager::getModelFirmwareById(int id) {
+  const char *sql =
+      "SELECT id, model_id, firmware_id FROM ModelFirmware WHERE id = ?;";
+  sqlite3_stmt *stmt;
+  std::optional<ModelFirmwareRecord> result = std::nullopt;
+
+  if (sqlite3_prepare_v2(db, sql, -1, &stmt, nullptr) == SQLITE_OK) {
+    sqlite3_bind_int(stmt, 1, id);
+    if (sqlite3_step(stmt) == SQLITE_ROW) {
+      ModelFirmwareRecord rec;
+      rec.id = sqlite3_column_int(stmt, 0);
+      rec.model_id = sqlite3_column_int(stmt, 1);
+      rec.firmware_id = sqlite3_column_int(stmt, 2);
+      result = rec;
+    }
+  }
+  sqlite3_finalize(stmt);
+  return result;
 }
 
 int DeviceManager::addService(const std::string &descKey, int parentId) {
@@ -1233,26 +1253,22 @@ DeviceManager::getComponentOptions(int featureComponentId) {
   return options;
 }
 
-int64_t DeviceManager::addPhysicalDevice(const PhysicalDevice &record) {
-  const char *sql = "INSERT INTO PhysicalDevices "
-                    "(name, device_id, model_id, "
-                    "firmware_version_id, "
+int64_t DeviceManager::addDevice(const Device &record) {
+  const char *sql = "INSERT INTO Devices "
+                    "(name, model_firmware_id, "
                     "identifier, description, "
                     "comment, "
-                    "is_template) VALUES (?, ?, ?, "
-                    "?, ?, ?, ?, ?);";
+                    "is_template) VALUES (?, ?, ?, ?, ?, ?);";
   sqlite3_stmt *stmt;
   if (sqlite3_prepare_v2(db, sql, -1, &stmt, nullptr) != SQLITE_OK)
     return 0;
 
   sqlite3_bind_text(stmt, 1, record.name.c_str(), -1, SQLITE_TRANSIENT);
-  sqlite3_bind_int(stmt, 2, record.device_id);
-  sqlite3_bind_int(stmt, 3, record.model_id);
-  sqlite3_bind_int(stmt, 4, record.firmware_version_id);
-  sqlite3_bind_text(stmt, 5, record.identifier.c_str(), -1, SQLITE_TRANSIENT);
-  sqlite3_bind_text(stmt, 6, record.description.c_str(), -1, SQLITE_TRANSIENT);
-  sqlite3_bind_text(stmt, 7, record.comment.c_str(), -1, SQLITE_TRANSIENT);
-  sqlite3_bind_int(stmt, 8, record.is_template ? 1 : 0);
+  sqlite3_bind_int(stmt, 2, record.model_firmware_id);
+  sqlite3_bind_text(stmt, 3, record.identifier.c_str(), -1, SQLITE_TRANSIENT);
+  sqlite3_bind_text(stmt, 4, record.description.c_str(), -1, SQLITE_TRANSIENT);
+  sqlite3_bind_text(stmt, 5, record.comment.c_str(), -1, SQLITE_TRANSIENT);
+  sqlite3_bind_int(stmt, 6, record.is_template ? 1 : 0);
 
   int rc = sqlite3_step(stmt);
   int64_t id = 0;
@@ -1263,11 +1279,9 @@ int64_t DeviceManager::addPhysicalDevice(const PhysicalDevice &record) {
   return id;
 }
 
-bool DeviceManager::updatePhysicalDevice(const PhysicalDevice &record) {
-  const char *sql = "UPDATE PhysicalDevices SET name "
-                    "= ?, device_id = ?, "
-                    "model_id = ?, "
-                    "firmware_version_id = ?, "
+bool DeviceManager::updateDevice(const Device &record) {
+  const char *sql = "UPDATE Devices SET name "
+                    "= ?, model_firmware_id = ?, "
                     "identifier = ?, "
                     "description = ?, comment = ?, "
                     "is_template = ? WHERE id = ?;";
@@ -1276,22 +1290,20 @@ bool DeviceManager::updatePhysicalDevice(const PhysicalDevice &record) {
     return false;
 
   sqlite3_bind_text(stmt, 1, record.name.c_str(), -1, SQLITE_TRANSIENT);
-  sqlite3_bind_int(stmt, 2, record.device_id);
-  sqlite3_bind_int(stmt, 3, record.model_id);
-  sqlite3_bind_int(stmt, 4, record.firmware_version_id);
-  sqlite3_bind_text(stmt, 5, record.identifier.c_str(), -1, SQLITE_TRANSIENT);
-  sqlite3_bind_text(stmt, 6, record.description.c_str(), -1, SQLITE_TRANSIENT);
-  sqlite3_bind_text(stmt, 7, record.comment.c_str(), -1, SQLITE_TRANSIENT);
-  sqlite3_bind_int(stmt, 8, record.is_template ? 1 : 0);
-  sqlite3_bind_int64(stmt, 9, record.id);
+  sqlite3_bind_int(stmt, 2, record.model_firmware_id);
+  sqlite3_bind_text(stmt, 3, record.identifier.c_str(), -1, SQLITE_TRANSIENT);
+  sqlite3_bind_text(stmt, 4, record.description.c_str(), -1, SQLITE_TRANSIENT);
+  sqlite3_bind_text(stmt, 5, record.comment.c_str(), -1, SQLITE_TRANSIENT);
+  sqlite3_bind_int(stmt, 6, record.is_template ? 1 : 0);
+  sqlite3_bind_int64(stmt, 7, record.id);
 
   int rc = sqlite3_step(stmt);
   sqlite3_finalize(stmt);
   return rc == SQLITE_DONE;
 }
 
-bool DeviceManager::deletePhysicalDevice(int64_t id) {
-  const char *sql = "DELETE FROM PhysicalDevices "
+bool DeviceManager::deleteDevice(int64_t id) {
+  const char *sql = "DELETE FROM Devices "
                     "WHERE id = ?;";
   sqlite3_stmt *stmt;
   if (sqlite3_prepare_v2(db, sql, -1, &stmt, nullptr) != SQLITE_OK)
@@ -1303,30 +1315,27 @@ bool DeviceManager::deletePhysicalDevice(int64_t id) {
   return rc == SQLITE_DONE;
 }
 
-std::vector<PhysicalDevice> DeviceManager::getAllPhysicalDevices() {
-  std::vector<PhysicalDevice> devices;
-  const char *sql = "SELECT id, name, device_id, "
-                    "model_id, firmware_version_id, "
+std::vector<Device> DeviceManager::getAllDevices() {
+  std::vector<Device> devices;
+  const char *sql = "SELECT id, name, model_firmware_id, "
                     "identifier, description, "
                     "comment, is_template FROM "
-                    "PhysicalDevices;";
+                    "Devices;";
   sqlite3_stmt *stmt;
 
   if (sqlite3_prepare_v2(db, sql, -1, &stmt, nullptr) == SQLITE_OK) {
     while (sqlite3_step(stmt) == SQLITE_ROW) {
-      PhysicalDevice rec;
+      Device rec;
       rec.id = sqlite3_column_int64(stmt, 0);
       rec.name = reinterpret_cast<const char *>(sqlite3_column_text(stmt, 1));
-      rec.device_id = sqlite3_column_int(stmt, 2);
-      rec.model_id = sqlite3_column_int(stmt, 3);
-      rec.firmware_version_id = sqlite3_column_int(stmt, 4);
+      rec.model_firmware_id = sqlite3_column_int(stmt, 2);
       rec.identifier =
-          reinterpret_cast<const char *>(sqlite3_column_text(stmt, 5));
+          reinterpret_cast<const char *>(sqlite3_column_text(stmt, 3));
       rec.description =
-          reinterpret_cast<const char *>(sqlite3_column_text(stmt, 6));
+          reinterpret_cast<const char *>(sqlite3_column_text(stmt, 4));
       rec.comment =
-          reinterpret_cast<const char *>(sqlite3_column_text(stmt, 7));
-      rec.is_template = sqlite3_column_int(stmt, 8) != 0;
+          reinterpret_cast<const char *>(sqlite3_column_text(stmt, 5));
+      rec.is_template = sqlite3_column_int(stmt, 6) != 0;
       devices.push_back(rec);
     }
     sqlite3_finalize(stmt);
@@ -1334,32 +1343,31 @@ std::vector<PhysicalDevice> DeviceManager::getAllPhysicalDevices() {
   return devices;
 }
 
-std::vector<PhysicalDevice>
-DeviceManager::getPhysicalDevicesByDevice(int deviceId) {
-  std::vector<PhysicalDevice> devices;
-  const char *sql = "SELECT id, name, device_id, "
-                    "model_id, firmware_version_id, "
-                    "identifier, description, "
-                    "comment, is_template FROM "
-                    "PhysicalDevices WHERE device_id = ?;";
+std::vector<Device> DeviceManager::getDevicesByLine(int lineId) {
+  std::vector<Device> devices;
+  const char *sql = "SELECT d.id, d.name, d.model_firmware_id, "
+                    "d.identifier, d.description, "
+                    "d.comment, d.is_template FROM "
+                    "Devices d "
+                    "JOIN ModelFirmware mf ON d.model_firmware_id = mf.id "
+                    "JOIN Models m ON mf.model_id = m.id "
+                    "WHERE m.line_id = ?;";
   sqlite3_stmt *stmt;
 
   if (sqlite3_prepare_v2(db, sql, -1, &stmt, nullptr) == SQLITE_OK) {
-    sqlite3_bind_int(stmt, 1, deviceId);
+    sqlite3_bind_int(stmt, 1, lineId);
     while (sqlite3_step(stmt) == SQLITE_ROW) {
-      PhysicalDevice rec;
+      Device rec;
       rec.id = sqlite3_column_int64(stmt, 0);
       rec.name = reinterpret_cast<const char *>(sqlite3_column_text(stmt, 1));
-      rec.device_id = sqlite3_column_int(stmt, 2);
-      rec.model_id = sqlite3_column_int(stmt, 3);
-      rec.firmware_version_id = sqlite3_column_int(stmt, 4);
+      rec.model_firmware_id = sqlite3_column_int(stmt, 2);
       rec.identifier =
-          reinterpret_cast<const char *>(sqlite3_column_text(stmt, 5));
+          reinterpret_cast<const char *>(sqlite3_column_text(stmt, 3));
       rec.description =
-          reinterpret_cast<const char *>(sqlite3_column_text(stmt, 6));
+          reinterpret_cast<const char *>(sqlite3_column_text(stmt, 4));
       rec.comment =
-          reinterpret_cast<const char *>(sqlite3_column_text(stmt, 7));
-      rec.is_template = sqlite3_column_int(stmt, 8) != 0;
+          reinterpret_cast<const char *>(sqlite3_column_text(stmt, 5));
+      rec.is_template = sqlite3_column_int(stmt, 6) != 0;
       devices.push_back(rec);
     }
     sqlite3_finalize(stmt);
@@ -1367,30 +1375,27 @@ DeviceManager::getPhysicalDevicesByDevice(int deviceId) {
   return devices;
 }
 
-std::optional<PhysicalDevice> DeviceManager::getPhysicalDeviceById(int64_t id) {
-  const char *sql = "SELECT id, name, device_id, "
-                    "model_id, firmware_version_id, "
+std::optional<Device> DeviceManager::getDeviceById(int64_t id) {
+  const char *sql = "SELECT id, name, model_firmware_id, "
                     "identifier, description, "
                     "comment, is_template FROM "
-                    "PhysicalDevices WHERE id = ?;";
+                    "Devices WHERE id = ?;";
   sqlite3_stmt *stmt;
 
   if (sqlite3_prepare_v2(db, sql, -1, &stmt, nullptr) == SQLITE_OK) {
     sqlite3_bind_int64(stmt, 1, id);
     if (sqlite3_step(stmt) == SQLITE_ROW) {
-      PhysicalDevice rec;
+      Device rec;
       rec.id = sqlite3_column_int64(stmt, 0);
       rec.name = reinterpret_cast<const char *>(sqlite3_column_text(stmt, 1));
-      rec.device_id = sqlite3_column_int(stmt, 2);
-      rec.model_id = sqlite3_column_int(stmt, 3);
-      rec.firmware_version_id = sqlite3_column_int(stmt, 4);
+      rec.model_firmware_id = sqlite3_column_int(stmt, 2);
       rec.identifier =
-          reinterpret_cast<const char *>(sqlite3_column_text(stmt, 5));
+          reinterpret_cast<const char *>(sqlite3_column_text(stmt, 3));
       rec.description =
-          reinterpret_cast<const char *>(sqlite3_column_text(stmt, 6));
+          reinterpret_cast<const char *>(sqlite3_column_text(stmt, 4));
       rec.comment =
-          reinterpret_cast<const char *>(sqlite3_column_text(stmt, 7));
-      rec.is_template = sqlite3_column_int(stmt, 8) != 0;
+          reinterpret_cast<const char *>(sqlite3_column_text(stmt, 5));
+      rec.is_template = sqlite3_column_int(stmt, 6) != 0;
       sqlite3_finalize(stmt);
       return rec;
     }
@@ -1399,23 +1404,92 @@ std::optional<PhysicalDevice> DeviceManager::getPhysicalDeviceById(int64_t id) {
   return std::nullopt;
 }
 
-bool DeviceManager::setPhysicalDeviceValue(int64_t physicalDeviceId,
-                                           int featureId,
-                                           const std::string &value) {
-  const char *sql = "INSERT INTO "
-                    "PhysicalDeviceValues "
-                    "(physical_device_id, "
-                    "feature_id, value) VALUES (?, "
-                    "?, ?) "
-                    "ON CONFLICT(physical_device_id, "
-                    "feature_id) DO UPDATE SET "
-                    "value = excluded.value;";
+int64_t DeviceManager::addDeviceRecord(int64_t deviceId) {
+  const char *sql = "INSERT INTO DeviceRecords (device_id) VALUES (?);";
+  sqlite3_stmt *stmt;
+  if (sqlite3_prepare_v2(db, sql, -1, &stmt, nullptr) != SQLITE_OK)
+    return -1;
+
+  sqlite3_bind_int64(stmt, 1, deviceId);
+  int rc = sqlite3_step(stmt);
+  int64_t id = -1;
+  if (rc == SQLITE_DONE) {
+    id = sqlite3_last_insert_rowid(db);
+  }
+  sqlite3_finalize(stmt);
+  return id;
+}
+
+bool DeviceManager::deleteDeviceRecord(int64_t id) {
+  const char *sql = "DELETE FROM DeviceRecords WHERE id = ?;";
   sqlite3_stmt *stmt;
   if (sqlite3_prepare_v2(db, sql, -1, &stmt, nullptr) != SQLITE_OK)
     return false;
 
-  sqlite3_bind_int64(stmt, 1, physicalDeviceId);
-  sqlite3_bind_int(stmt, 2, featureId);
+  sqlite3_bind_int64(stmt, 1, id);
+  int rc = sqlite3_step(stmt);
+  sqlite3_finalize(stmt);
+  return rc == SQLITE_DONE;
+}
+
+std::vector<DeviceRecord> DeviceManager::getRecordsByDevice(int64_t deviceId) {
+  std::vector<DeviceRecord> records;
+  const char *sql =
+      "SELECT id, device_id, created_at FROM DeviceRecords WHERE device_id = ? "
+      "ORDER BY created_at DESC;";
+  sqlite3_stmt *stmt;
+  if (sqlite3_prepare_v2(db, sql, -1, &stmt, nullptr) == SQLITE_OK) {
+    sqlite3_bind_int64(stmt, 1, deviceId);
+    while (sqlite3_step(stmt) == SQLITE_ROW) {
+      DeviceRecord rec;
+      rec.id = sqlite3_column_int64(stmt, 0);
+      rec.device_id = sqlite3_column_int64(stmt, 1);
+      const char *createdAt =
+          reinterpret_cast<const char *>(sqlite3_column_text(stmt, 2));
+      if (createdAt)
+        rec.created_at = createdAt;
+      records.push_back(rec);
+    }
+    sqlite3_finalize(stmt);
+  }
+  return records;
+}
+
+std::optional<DeviceRecord> DeviceManager::getDeviceRecordById(int64_t id) {
+  const char *sql =
+      "SELECT id, device_id, created_at FROM DeviceRecords WHERE id = ?;";
+  sqlite3_stmt *stmt;
+  if (sqlite3_prepare_v2(db, sql, -1, &stmt, nullptr) == SQLITE_OK) {
+    sqlite3_bind_int64(stmt, 1, id);
+    if (sqlite3_step(stmt) == SQLITE_ROW) {
+      DeviceRecord rec;
+      rec.id = sqlite3_column_int64(stmt, 0);
+      rec.device_id = sqlite3_column_int64(stmt, 1);
+      const char *createdAt =
+          reinterpret_cast<const char *>(sqlite3_column_text(stmt, 2));
+      if (createdAt)
+        rec.created_at = createdAt;
+      sqlite3_finalize(stmt);
+      return rec;
+    }
+    sqlite3_finalize(stmt);
+  }
+  return std::nullopt;
+}
+
+bool DeviceManager::setRecordValue(int64_t device_record_id, int feature_id,
+                                   const std::string &value) {
+  const char *sql =
+      "INSERT INTO DeviceValues (device_record_id, feature_id, value) "
+      "VALUES (?, ?, ?) "
+      "ON CONFLICT(device_record_id, feature_id) DO UPDATE SET value = "
+      "excluded.value;";
+  sqlite3_stmt *stmt;
+  if (sqlite3_prepare_v2(db, sql, -1, &stmt, nullptr) != SQLITE_OK)
+    return false;
+
+  sqlite3_bind_int64(stmt, 1, device_record_id);
+  sqlite3_bind_int(stmt, 2, feature_id);
   sqlite3_bind_text(stmt, 3, value.c_str(), -1, SQLITE_TRANSIENT);
 
   int rc = sqlite3_step(stmt);
@@ -1423,18 +1497,16 @@ bool DeviceManager::setPhysicalDeviceValue(int64_t physicalDeviceId,
   return rc == SQLITE_DONE;
 }
 
-std::string DeviceManager::getPhysicalDeviceValue(int64_t physicalDeviceId,
-                                                  int featureId) {
-  const char *sql = "SELECT value FROM "
-                    "PhysicalDeviceValues WHERE "
-                    "physical_device_id = ? AND "
-                    "feature_id = ?;";
+std::string DeviceManager::getRecordValue(int64_t device_record_id,
+                                          int feature_id) {
+  const char *sql = "SELECT value FROM DeviceValues WHERE device_record_id = ? "
+                    "AND feature_id = ?;";
   sqlite3_stmt *stmt;
   std::string value = "";
 
   if (sqlite3_prepare_v2(db, sql, -1, &stmt, nullptr) == SQLITE_OK) {
-    sqlite3_bind_int64(stmt, 1, physicalDeviceId);
-    sqlite3_bind_int(stmt, 2, featureId);
+    sqlite3_bind_int64(stmt, 1, device_record_id);
+    sqlite3_bind_int(stmt, 2, feature_id);
     if (sqlite3_step(stmt) == SQLITE_ROW) {
       const char *val =
           reinterpret_cast<const char *>(sqlite3_column_text(stmt, 0));
@@ -1446,21 +1518,20 @@ std::string DeviceManager::getPhysicalDeviceValue(int64_t physicalDeviceId,
   return value;
 }
 
-std::vector<PhysicalDeviceValueRecord>
-DeviceManager::getValuesForPhysicalDevice(int64_t physicalDeviceId) {
-  std::vector<PhysicalDeviceValueRecord> values;
-  const char *sql = "SELECT id, physical_device_id, "
-                    "feature_id, value FROM "
-                    "PhysicalDeviceValues WHERE "
-                    "physical_device_id = ?;";
+std::vector<DeviceValueRecord>
+DeviceManager::getValuesForRecord(int64_t device_record_id) {
+  std::vector<DeviceValueRecord> values;
+  const char *sql =
+      "SELECT id, device_record_id, feature_id, value FROM DeviceValues "
+      "WHERE device_record_id = ?;";
   sqlite3_stmt *stmt;
 
   if (sqlite3_prepare_v2(db, sql, -1, &stmt, nullptr) == SQLITE_OK) {
-    sqlite3_bind_int64(stmt, 1, physicalDeviceId);
+    sqlite3_bind_int64(stmt, 1, device_record_id);
     while (sqlite3_step(stmt) == SQLITE_ROW) {
-      PhysicalDeviceValueRecord rec;
+      DeviceValueRecord rec;
       rec.id = sqlite3_column_int(stmt, 0);
-      rec.physical_device_id = static_cast<int>(sqlite3_column_int64(stmt, 1));
+      rec.device_record_id = sqlite3_column_int64(stmt, 1);
       rec.feature_id = sqlite3_column_int(stmt, 2);
       const char *val =
           reinterpret_cast<const char *>(sqlite3_column_text(stmt, 3));
@@ -1471,4 +1542,29 @@ DeviceManager::getValuesForPhysicalDevice(int64_t physicalDeviceId) {
     sqlite3_finalize(stmt);
   }
   return values;
+}
+
+bool DeviceManager::setDeviceValue(int64_t deviceId, int featureId,
+                                   const std::string &value) {
+  // Find latest record or create one
+  auto records = getRecordsByDevice(deviceId);
+  int64_t device_record_id;
+  if (records.empty()) {
+    device_record_id = addDeviceRecord(deviceId);
+  } else {
+    device_record_id =
+        records[0].id; // LATEST because of ORDER BY created_at DESC
+  }
+
+  if (device_record_id <= 0)
+    return false;
+  return setRecordValue(device_record_id, featureId, value);
+}
+
+std::vector<DeviceValueRecord>
+DeviceManager::getValuesForDevice(int64_t deviceId) {
+  auto records = getRecordsByDevice(deviceId);
+  if (records.empty())
+    return {};
+  return getValuesForRecord(records[0].id);
 }
